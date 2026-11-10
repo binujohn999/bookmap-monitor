@@ -1,121 +1,212 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bookmap Video Bias Monitor V4 — ES / NQ</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NQ Dual-Source Monitor V5 — Bookmap + TradingView</title>
 <style>
-:root{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Arial,sans-serif;color:#e8f1ff;background:#0b1120;--panel:#14223a;--stroke:#2c4668;--muted:#9fb8da;--blue:#4386fa;--green:#52dfb2;--red:#ff8190}
-*{box-sizing:border-box}body{margin:0}header{background:#132039;border-bottom:1px solid var(--stroke);padding:20px max(20px,calc((100vw - 1300px)/2))}h1{font-size:23px;margin:0 0 5px}h2{font-size:18px;margin:0 0 9px}h3{font-size:15px;margin:0}.muted{color:var(--muted);font-size:13px;line-height:1.5}.shell{max-width:1300px;margin:auto;padding:17px 18px 34px}.warn{border:1px solid #876a35;background:#33291c;color:#ffe5b0;border-radius:11px;padding:12px 14px;font-size:13px;line-height:1.5}.layout{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(340px,1fr);gap:14px;margin-top:14px}section{background:var(--panel);border:1px solid var(--stroke);padding:16px;border-radius:12px}.toolbar,.controls,.flex{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.toolbar{margin-top:13px}.controls{margin:12px 0}button,select,input{font:inherit}button{border:0;background:var(--blue);border-radius:8px;color:white;font-size:14px;font-weight:650;padding:10px 12px;cursor:pointer}button.secondary{background:#2c466c}button.positive{background:#16745c}button:disabled{opacity:.45;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #83b7ff;outline-offset:2px}select,input{background:#253c5b;border:1px solid #476282;border-radius:7px;padding:8px;color:#fff}input[type=number]{width:150px;max-width:100%}label{font-size:13px;color:#c9d9ec}.manual{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.manual-box{background:#102035;border:1px solid #385371;border-radius:9px;padding:11px}.manual-box .flex{margin-top:8px}.viewer{position:relative;border:1px solid #486181;border-radius:8px;overflow:hidden;background:#030811}.viewer canvas{display:block;width:100%;height:auto;cursor:crosshair;touch-action:none}.hint{margin:9px 0 0;font-size:12px;color:#a9bfe1}.card{background:#0d1d33;border:1px solid #35516f;padding:14px;border-radius:10px;margin:0 0 12px}.card-head{display:flex;justify-content:space-between;align-items:center}.signal{font-weight:850;font-size:25px;color:#bad0eb;letter-spacing:.4px}.signal.bull{color:var(--green)}.signal.bear{color:var(--red)}.signal.neutral{color:#f1cb7e}.manual-price{font-size:13px;color:#bdd6f3;margin:6px 0 11px}.kv{display:grid;grid-template-columns:minmax(120px,1fr) auto;align-items:baseline;gap:7px;font-size:12px}.kv strong{text-align:right;font-variant-numeric:tabular-nums}.meter{width:100%;height:11px;overflow:hidden;background:#293e5b;display:flex;border-radius:7px;margin:11px 0 4px}.meter>span{height:100%;display:block}.meter .red{background:#dd6473}.meter .green{background:#43cfa7}.mini{display:flex;justify-content:space-between;color:#abc2de;font-size:11px}.state{font-size:12px;margin:11px 0 0;color:#bfcee0;line-height:1.45}.footer{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}#log{font:12px Consolas,monospace;white-space:pre-wrap;height:145px;overflow:auto;background:#081321;border-radius:8px;padding:10px;color:#b9d3f0}.small{font-size:12px}.status{font-size:13px;color:#c6dbfa}.pill{font-size:11px;padding:4px 8px;border-radius:20px;background:#344363;color:#d8eaff;display:inline-block;margin-top:8px}.pill.bad{background:#51312d;color:#ffd0b5}.pill.good{background:#174a3c;color:#aeefda}.annotation{color:#c0d4eb;font-size:12px;line-height:1.5}a{color:#99c6ff}.light{color:#f7d7a3}.hint-inline{background:#1e3351;padding:7px 9px;border-radius:7px;font-size:12px;color:#d5e3fa} @media(max-width:900px){.layout,.footer{grid-template-columns:1fr}}@media(max-width:480px){.manual{grid-template-columns:1fr}header{padding:16px}.shell{padding:12px}}
+:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:#0b1322;color:#e8f1ff;--card:#14233b;--stroke:#304b6b;--muted:#a4bbd5;--blue:#4285f4;--green:#55ddb0;--red:#ff7e95;--amber:#ffda8b}
+*{box-sizing:border-box}body{margin:0}header{padding:22px max(20px,calc((100vw - 1430px)/2));background:#121f34;border-bottom:1px solid var(--stroke)}h1{margin:0 0 6px;font-size:clamp(21px,2.5vw,28px)}h2{margin:0 0 10px;font-size:19px}h3{margin:0 0 9px;font-size:15px}p{margin:8px 0;line-height:1.5}.muted{color:var(--muted);font-size:13px}.shell{max-width:1430px;margin:0 auto;padding:16px 18px 32px}.warn{border:1px solid #967142;background:#332a1e;color:#ffe4ae;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5}.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:15px;margin-top:14px}.sources{display:grid;grid-template-columns:1fr 1fr;gap:13px}.panel{background:var(--card);border:1px solid var(--stroke);padding:15px;border-radius:12px}.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:9px 0}.row.stretch{justify-content:space-between}button,input,select{font:inherit}button{background:var(--blue);color:white;border:0;border-radius:8px;padding:10px 12px;font-weight:650;font-size:13px;cursor:pointer}button.secondary{background:#2c4565}button.success{background:#167b62}button:disabled{opacity:.43;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #8ec2ff;outline-offset:2px}select,input{border-radius:7px;background:#253b58;border:1px solid #48627e;color:white;padding:8px;font-size:13px}input[type=number]{width:140px;max-width:100%}label{font-size:13px;color:#cfe0f4}a{color:#abd0ff}.viewer{border:1px solid #45607f;border-radius:9px;overflow:hidden;background:#060d17}.viewer canvas{width:100%;height:auto;display:block;cursor:crosshair;touch-action:none}.subheading{font-size:12px;color:var(--muted);margin:8px 0;min-height:28px}.small{font-size:12px}.state{font-size:13px;color:#cfdeef;line-height:1.5}.tag{display:inline-block;background:#334963;color:#c5dfff;padding:4px 9px;border-radius:30px;font-size:11px}.tag.ok{color:#b4f4dc;background:#1f5a49}.tag.bad{color:#ffe1aa;background:#644127}.signal{font-size:36px;font-weight:850;letter-spacing:.8px;color:#c5d4e9}.signal.bull{color:var(--green)}.signal.bear{color:var(--red)}.signal.neutral{color:var(--amber)}.price{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:4px 0}.kvs{display:grid;grid-template-columns:minmax(115px,1fr) auto;gap:9px 12px;font-size:13px;margin:14px 0}.kvs strong{text-align:right;font-variant-numeric:tabular-nums;max-width:210px}.rule{border:0;border-top:1px solid var(--stroke);margin:16px 0}.meter{height:13px;border-radius:9px;overflow:hidden;background:#293e58;display:flex}.meter span:first-child{background:#4fd3a4}.meter span:last-child{background:#db697c}.twin{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:5px 0 13px}.crop{max-width:100%;width:100%;height:70px;object-fit:contain;background:#060d15;border:1px solid #3f5771;border-radius:7px}.error{color:#ffb6ae}.help{border:1px solid #314962;background:#101d31;border-radius:9px;padding:11px;font-size:12px;line-height:1.55;margin-top:10px}.log{font:12px Consolas,monospace;white-space:pre-wrap;max-height:190px;overflow:auto;background:#07111f;border-radius:7px;padding:9px;color:#bcd2ee;margin-top:8px}.footer{margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:14px}ol{margin:7px 0;padding-left:20px;line-height:1.75}.focus{font-size:15px;color:#c9e1ff}.full{grid-column:1/-1}@media(max-width:1100px){.grid{grid-template-columns:1fr}}@media(max-width:670px){.sources,.footer{grid-template-columns:1fr}.shell{padding:12px}.signal{font-size:30px}.price{font-size:28px}}
 </style>
 </head>
 <body>
-<header><h1>Bookmap ES / NQ <span style="color:#83b7ff">V4 — Visual Bias Monitor</span></h1><div class="muted">Manual reference prices • video-color activity analysis • BULLISH / BEARISH / NEUTRAL / WAIT • no OCR</div></header>
+<header><h1>NQ Dual-Source Monitor <span style="color:#85b7ff">V5</span></h1><p class="muted">One market: NQ • Bookmap visual activity + TradingView on-screen price • two independently shared tabs/windows • no ES</p></header>
 <div class="shell">
-<div class="warn"><strong>Experimental visual estimate — not actual order-flow data.</strong> This app counts changing green/red shapes in a shared Bookmap video; those pixels cannot establish actual executed buy/sell volume, iceberg orders, absorption, or true market direction. YouTube can be delayed, buffered, or paused. The labels are <strong>not validated trading signals</strong>; do not rely on them for real-money or automated trades.</div>
-<div class="toolbar"><button id="share">1. Share Bookmap video</button><button id="stop" class="secondary" disabled>Stop sharing</button><button id="csv" class="secondary">Download CSV</button><span class="status" id="status">Waiting for screen share</span></div>
-<div class="layout">
-<section>
-<h2>2. Manual prices (optional reference)</h2><p class="muted">Enter the current ES and NQ prices yourself. The numbers are <b>for your reference only</b> — V4 does not try to read prices from the video and does not predict price targets or ranges.</p>
-<div class="manual">
-<div class="manual-box"><label for="esInput">ES current price</label><div class="flex"><input id="esInput" type="number" step="0.25" min="0" inputmode="decimal" placeholder="e.g. 7575.00"><button id="esSave" class="positive">Set ES</button></div><div id="esSaved" class="muted">Not entered</div></div>
-<div class="manual-box"><label for="nqInput">NQ current price</label><div class="flex"><input id="nqInput" type="number" step="0.25" min="0" inputmode="decimal" placeholder="e.g. 27960.00"><button id="nqSave" class="positive">Set NQ</button></div><div id="nqSaved" class="muted">Not entered</div></div>
+<div class="warn"><strong>Experimental visual monitor—not a live order-flow feed or a trading predictor.</strong> A YouTube Bookmap stream can be delayed compared with TradingView, so the two sources may describe different moments. Color-change counts do not measure genuine buy/sell execution volume. TradingView price is read from pixels using OCR and can be wrong, delayed, or for a different contract. Treat BULLISH/BEARISH as <strong>unvalidated observations, not trade signals</strong>.</div>
+<div class="grid">
+<div>
+  <div class="sources">
+    <section class="panel" aria-label="Bookmap video capture">
+      <h2>1. Bookmap — NQ only</h2>
+      <p class="muted">Share the YouTube/Bookmap tab or window. Drag a region around <strong>NQ heatmap trade bubbles</strong>, excluding price ladder, volume bars and ES.</p>
+      <div class="row"><button id="bookShare">Share Bookmap</button><button id="bookStop" class="secondary" disabled>Stop</button><button id="bookPreset" class="secondary" disabled>NQ preset</button></div>
+      <div id="bookStatus" class="subheading">Not sharing</div>
+      <div class="viewer"><canvas id="bookCanvas" width="840" height="473" aria-label="Bookmap video preview; drag to select NQ area"></canvas></div>
+      <p class="subheading">Blue rectangle = NQ trade-bubble region. Drag to redefine. Use theater mode for a larger image.</p>
+    </section>
+    <section class="panel" aria-label="TradingView price capture">
+      <h2>2. TradingView — NQ price</h2>
+      <p class="muted">Share your <strong>TradingView NQ chart</strong> separately. Draw around ONE readable current-price number—preferably a fixed-position quote rather than the moving right-axis label.</p>
+      <div class="row"><button id="tvShare">Share TradingView</button><button id="tvStop" class="secondary" disabled>Stop</button><button id="tvClear" class="secondary">Clear box</button></div>
+      <div id="tvStatus" class="subheading">Not sharing</div>
+      <div class="viewer"><canvas id="tvCanvas" width="840" height="473" aria-label="TradingView preview; drag around a single current-price readout"></canvas></div>
+      <p class="subheading">Orange rectangle = TradingView price OCR box. Move it if the displayed label drifts outside it.</p>
+      <div class="row"><label>OCR image <select id="ocrMode"><option value="normal">Normal</option><option value="high">High contrast</option><option value="invert">Inverted</option></select></label><button id="testPrice" class="secondary" disabled>Test price OCR</button><button id="confirmPrice" class="success" disabled>Confirm detected price</button></div>
+      <div class="row"><label for="manualPrice">Manual fallback</label><input id="manualPrice" type="number" step="0.25" placeholder="e.g. 27960.25" min="0"><button id="useManual" class="secondary">Use once</button></div>
+      <p class="muted">Manual prices are snapshots, not a continuous feed. Re-enter as prices move. OCR requires an internet download of Tesseract.js, then runs in your browser.</p>
+    </section>
+  </div>
+  <section class="panel" style="margin-top:14px">
+    <h2>3. Monitor controls</h2>
+    <div class="row"><button id="start" class="success" disabled>Start NQ monitoring</button><button id="pause" class="secondary" disabled>Pause</button><button id="reset" class="secondary">Reset price track</button><button id="csv" class="secondary">Download CSV</button></div>
+    <div class="row"><label>Bookmap sample <select id="bookEvery"><option value="1000">1 sec</option><option value="2000" selected>2 sec</option><option value="3000">3 sec</option></select></label><label>TradingView OCR <select id="tvEvery"><option value="2500">2.5 sec</option><option value="4000" selected>4 sec</option><option value="6000">6 sec</option></select></label><label>NQ 30s move threshold <input type="number" id="moveThreshold" min="0.25" step="0.25" value="3" style="width:84px"></label></div>
+    <div id="overallStatus" class="state">Share both sources and select the NQ heatmap and TradingView price box.</div>
+    <div class="help"><strong>Browser permissions:</strong> The two Share buttons each open their <em>own</em> Chrome/Edge screen-share picker. Choose the Bookmap tab/window first, then the TradingView tab/window. Do not choose this monitor tab. A static GitHub Pages site cannot silently read TradingView or Bookmap without your consent. <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia" target="_blank" rel="noopener noreferrer">About screen sharing</a>.</div>
+  </section>
 </div>
-<h2 style="margin-top:22px">3. Select the chart areas</h2><p class="muted">Share the YouTube tab in <strong>Theater / fullscreen</strong> or share your Bookmap window. Use <b>Side-by-side preset</b> first, then adjust the ES and NQ boxes by drawing over the colored trade bubbles in each heatmap. <strong>Exclude the red/green volume bars, price ladder, menus, and lower studies.</strong></p>
-<div class="controls"><button id="preset" class="secondary" disabled>Side-by-side preset</button><label>Draw region <select id="which"><option value="ES">ES trade bubbles</option><option value="NQ">NQ trade bubbles</option></select></label><button id="clear" class="secondary">Clear boxes</button></div>
-<div class="viewer"><canvas id="preview" width="960" height="540" aria-label="Live shared video preview; drag to select ES or NQ heatmap area"></canvas></div>
-<p class="hint">Blue rectangle = ES. Purple rectangle = NQ. Only changing colored shapes <em>inside</em> these rectangles are sampled. If the original tab changes size or the player moves, redraw both boxes.</p>
-<div class="controls"><button id="start" disabled>4. Start visual assessment</button><button id="pause" class="secondary" disabled>Pause</button><label>Sample every <select id="frequency"><option value="1000">1 second</option><option value="2000" selected>2 seconds</option><option value="3000">3 seconds</option></select></label></div>
-<div class="hint-inline">No price reading. No external OCR service. For an actual order-flow imbalance or delta signal, connect to a live Bookmap/NinjaTrader data feed instead of interpreting YouTube pixels.</div>
-</section>
-<section>
-<h2>Video activity assessment</h2>
-<div class="card" id="esCard"><div class="card-head"><h3>ES</h3><span class="signal" id="esSignal">WAIT</span></div><div class="manual-price">Entered price: <strong id="esPrice">—</strong></div><div class="kv"><span>Recent green / red visual activity</span><strong id="esRatio">—</strong><span>Last 15 seconds</span><strong id="es15">—</strong><span>Last 60 seconds</span><strong id="es60">—</strong><span>Video movement</span><strong id="esMotion">—</strong><span>Samples</span><strong id="esSamples">0</strong></div><div class="meter"><span class="green" id="esGreen" style="width:0%"></span><span class="red" id="esRed" style="width:0%"></span></div><div class="mini"><span>Green activity</span><span>Red activity</span></div><div class="pill" id="esPill">Not monitoring</div><p class="state" id="esReason">Waiting for video capture.</p></div>
-<div class="card" id="nqCard"><div class="card-head"><h3>NQ</h3><span class="signal" id="nqSignal">WAIT</span></div><div class="manual-price">Entered price: <strong id="nqPrice">—</strong></div><div class="kv"><span>Recent green / red visual activity</span><strong id="nqRatio">—</strong><span>Last 15 seconds</span><strong id="nq15">—</strong><span>Last 60 seconds</span><strong id="nq60">—</strong><span>Video movement</span><strong id="nqMotion">—</strong><span>Samples</span><strong id="nqSamples">0</strong></div><div class="meter"><span class="green" id="nqGreen" style="width:0%"></span><span class="red" id="nqRed" style="width:0%"></span></div><div class="mini"><span>Green activity</span><span>Red activity</span></div><div class="pill" id="nqPill">Not monitoring</div><p class="state" id="nqReason">Waiting for video capture.</p></div>
-<p class="annotation">Visual bias combines green/red changing-shape counts over approximately 15 and 60 seconds. <b>Neutral</b> means mixed observations; <b>WAIT</b> means not enough evidence, frozen video, or an unselected region. Neither label predicts the next candle.</p>
-</section>
+<div>
+  <section class="panel">
+    <div class="row stretch" style="margin:0"><h2>NQ 1-minute assessment</h2><span id="quality" class="tag bad">WAITING</span></div>
+    <div id="signal" class="signal">WAIT</div>
+    <p id="reason" class="state">Waiting for both shared sources and selected regions.</p>
+    <hr class="rule">
+    <h3>TradingView current price</h3>
+    <div id="nqPrice" class="price">—</div>
+    <div class="kvs"><span>Price source</span><strong id="priceSource">—</strong><span>OCR confidence</span><strong id="confidence">—</strong><span>Raw OCR reading</span><strong id="rawRead">—</strong><span>Price verified</span><strong id="verified">No</strong><span>30-second movement</span><strong id="priceMove">—</strong><span>Price reading age</span><strong id="priceAge">—</strong></div>
+    <img id="priceCrop" class="crop" alt="Current TradingView OCR crop" />
+    <hr class="rule">
+    <h3>Bookmap NQ video activity</h3>
+    <div class="kvs"><span>Visual activity bias (15s)</span><strong id="book15">—</strong><span>Visual activity bias (60s)</span><strong id="book60">—</strong><span>Video changing</span><strong id="bookMotion">—</strong><span>Observed samples</span><strong id="bookSamples">0</strong></div>
+    <div class="meter"><span id="greenbar" style="width:0%"></span><span id="redbar" style="width:0%"></span></div><div class="twin"><span>Green changed-shape pixels</span><span>Red changed-shape pixels</span></div>
+    <p class="muted">The final label requires sufficient motion, at least ~20 seconds of history, a fresh price, and agreement between the visual color-bias and price movement. Otherwise it displays NEUTRAL or WAIT. Even agreement is not evidence the delayed feeds are synchronized.</p>
+  </section>
 </div>
-<div class="footer"><section><h2>Quick setup</h2><p class="muted">1. Open <a href="https://www.youtube.com/watch?v=m_3VTciU8Yk" target="_blank" rel="noopener noreferrer">your Bookmap YouTube video</a>. 2. Share the video tab/window. 3. Enter prices if desired. 4. Use the preset and inspect the two colored selection boxes. 5. Draw tighter boxes around each chart's trade-bubble area if needed. 6. Click Start and observe the labels after a short sample period.</p><div class="muted" id="freshness">Video status: not captured</div></section><section><h2>Monitoring log</h2><div id="log">Ready. No OCR is used.</div></section></div>
-<p class="muted" style="margin-top:12px">Privacy: frames are processed in this browser tab; no frame uploads or external dependencies. Screen capture works in Chrome/Edge over HTTPS, including GitHub Pages. No brokerage connection or order placement.</p>
 </div>
-<video id="source" autoplay muted playsinline hidden></video>
+<div class="footer">
+  <section class="panel"><h2>Setup checklist</h2><ol><li>Open your <a href="https://www.youtube.com/watch?v=m_3VTciU8Yk" target="_blank" rel="noopener noreferrer">Bookmap stream</a>, enlarge the NQ chart and share its tab.</li><li>Click <strong>NQ preset</strong> and adjust the blue area to contain only NQ heatmap bubbles.</li><li>Open TradingView on the <strong>same NQ futures contract</strong> and share that tab or window separately.</li><li>Draw the orange box around one stable live price display; click <strong>Test price OCR</strong>, visually verify it, then <strong>Confirm detected price</strong>.</li><li>Click <strong>Start NQ monitoring</strong>. If OCR fails, manually enter a price as a temporary fallback.</li></ol></section>
+  <section class="panel"><h2>Diagnostics</h2><p class="muted">No uploaded video and no server processing. Captured frames stay in this browser. Tesseract OCR loads from a third-party CDN. Stop sharing independently at any time.</p><div id="log" class="log">Monitor loaded. Waiting for screen sharing.</div></section>
+</div>
+</div>
+<video id="bookVideo" autoplay playsinline muted hidden></video><video id="tvVideo" autoplay playsinline muted hidden></video>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 (()=>{'use strict';
-const $=id=>document.getElementById(id),M=['ES','NQ'];
-const video=$('source'),canvas=$('preview'),ctx=canvas.getContext('2d');
-const work=document.createElement('canvas');work.width=224;work.height=144;const wc=work.getContext('2d',{willReadFrequently:true});
-let stream=null,raf=0,timer=0,running=false,pointerStart=null,pointerEnd=null,logRows=[];
-const S={ES:{roi:null,prev:null,history:[],lastMotion:0,entered:null,signal:'WAIT'},NQ:{roi:null,prev:null,history:[],lastMotion:0,entered:null,signal:'WAIT'}};
-const log=s=>{$('log').textContent=`[${new Date().toLocaleTimeString()}] ${s}\n`+$('log').textContent.slice(0,4200)};
-const status=s=>$('status').textContent=s;
-const normRect=(a,b)=>({x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)});
-function drawBox(r,color,label){if(!r)return;ctx.lineWidth=3;ctx.strokeStyle=color;ctx.fillStyle=color;ctx.strokeRect(r.x*canvas.width,r.y*canvas.height,r.w*canvas.width,r.h*canvas.height);let x=r.x*canvas.width,y=r.y*canvas.height;ctx.font='bold 17px system-ui';ctx.fillRect(x,Math.max(0,y-23),Math.max(115,ctx.measureText(label).width+13),23);ctx.fillStyle='#071321';ctx.fillText(label,x+6,Math.max(18,y-6))}
-function display(){if(video.readyState>=2&&video.videoWidth){ctx.drawImage(video,0,0,canvas.width,canvas.height)}else{ctx.fillStyle='#050a13';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#a7bedc';ctx.font='18px system-ui';ctx.fillText('Share a Bookmap video tab to begin',25,45)}drawBox(S.ES.roi,'#55b9ff','ES trade area');drawBox(S.NQ.roi,'#a78bfa','NQ trade area');if(pointerStart&&pointerEnd)drawBox(normRect(pointerStart,pointerEnd),'#fde68a','New selection');raf=requestAnimationFrame(display)}
-function pointerPos(e){let b=canvas.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)),y:Math.max(0,Math.min(1,(e.clientY-b.top)/b.height))}}
-canvas.addEventListener('pointerdown',e=>{if(!stream)return;pointerStart=pointerPos(e);pointerEnd=pointerStart;canvas.setPointerCapture(e.pointerId)});
-canvas.addEventListener('pointermove',e=>{if(pointerStart)pointerEnd=pointerPos(e)});
-canvas.addEventListener('pointerup',e=>{if(!pointerStart)return;let r=normRect(pointerStart,pointerPos(e)),m=$('which').value;pointerStart=pointerEnd=null;if(r.w<.035||r.h<.045)return;S[m].roi=r;resetSamples(m);log(`${m}: chart region selected; the observation window was reset.`);render(m)});
-canvas.addEventListener('pointercancel',()=>{pointerStart=pointerEnd=null});
-function setPreset(){if(!stream)return;S.ES.roi={x:.08,y:.14,w:.35,h:.64};S.NQ.roi={x:.53,y:.14,w:.35,h:.64};M.forEach(resetSamples);M.forEach(render);log('Side-by-side default boxes applied. Check that each covers only its heatmap bubbles, not the red/green ladder or histogram.');}
-$('preset').onclick=setPreset;$('clear').onclick=()=>{M.forEach(m=>{S[m].roi=null;resetSamples(m);render(m)});log('Chart boxes cleared. Draw one box for ES and another for NQ.');};
-function saveManual(m){let el=$(m.toLowerCase()+'Input'),v=Number(el.value);if(!el.value.trim()||!Number.isFinite(v)||v<=0){el.setCustomValidity('Enter a positive price');el.reportValidity();return}el.setCustomValidity('');S[m].entered={price:v,at:Date.now()};let id=m.toLowerCase();$(id+'Price').textContent=v.toFixed(2);$(id+'Saved').textContent='Saved at '+new Date().toLocaleTimeString()+' · reference only';log(`${m} reference price manually entered: ${v.toFixed(2)} (not used for bias calculation)`)}
-for(let m of M){$(m.toLowerCase()+'Save').onclick=()=>saveManual(m);$(m.toLowerCase()+'Input').addEventListener('keydown',e=>{if(e.key==='Enter')saveManual(m)})}
-function resetSamples(m){let s=S[m];s.prev=null;s.history=[];s.lastMotion=0;s.signal='WAIT'}
-function stopAssessment(){running=false;clearInterval(timer);timer=0;$('start').disabled=!stream;$('pause').disabled=true}
-function stopShare(){stopAssessment();if(stream){for(let t of stream.getTracks())t.stop()}stream=null;video.srcObject=null;$('stop').disabled=true;$('preset').disabled=true;$('share').disabled=false;status('Sharing stopped');$('freshness').textContent='Video status: stopped';M.forEach(m=>{resetSamples(m);render(m)});log('Screen sharing stopped')}
-$('share').onclick=async()=>{try{let s=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:15},audio:false});if(stream)stopShare();stream=s;video.srcObject=stream;await video.play();const ratio=video.videoHeight/Math.max(1,video.videoWidth);canvas.width=960;canvas.height=Math.max(250,Math.round(960*ratio));$('stop').disabled=false;$('preset').disabled=false;$('share').disabled=true;$('start').disabled=false;stream.getVideoTracks()[0].addEventListener('ended',stopShare,{once:true});setPreset();status('Shared video active — check region outlines');log('Video shared. Draw/adjust ES and NQ heatmap boxes before starting.')}catch(e){status(e.name==='NotAllowedError'?'Sharing was canceled':'Share error: '+e.message);log('Capture did not start: '+e.message)}};
-$('stop').onclick=stopShare;
-// Classify strongly saturated red and green pixels. This is NOT true bid/ask execution classification.
-function colorType(r,g,b){let mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<42||mx<100)return 0;
- if(g>r*1.18&&g>b*1.09&&g>105)return 1;
- if(r>g*1.22&&r>b*1.10&&r>115)return -1;
- return 0}
-// Connected components reject many long heatmap liquidity bars / text streaks. The remaining
-// circles/patches are visual proxies only, never guaranteed executed trade bubbles.
-function coloredPatchActivity(curr,prev,WW,HH){let n=WW*HH,mask=new Int8Array(n),red=0,green=0;
- let motion=0,compared=0;for(let y=9;y<HH-9;y++)for(let x=Math.round(WW*.34);x<WW-4;x++){
-  let i=y*WW+x,j=i*4,r=curr[j],g=curr[j+1],b=curr[j+2];let diff=Math.abs(r-prev[j])+Math.abs(g-prev[j+1])+Math.abs(b-prev[j+2]);motion+=diff;compared++;if(diff<65)continue;mask[i]=colorType(r,g,b);
- }
- const seen=new Uint8Array(n),q=new Int32Array(n);let patchesG=0,patchesR=0;for(let y=9;y<HH-9;y++)for(let x=Math.round(WW*.34);x<WW-4;x++){
- let idx=y*WW+x,type=mask[idx];if(!type||seen[idx])continue;let start=0,end=1;seen[idx]=1;q[0]=idx;let xmin=x,xmax=x,ymin=y,ymax=y,count=0;
- while(start<end){let p=q[start++],px=p%WW,py=(p/WW)|0;count++;xmin=Math.min(xmin,px);xmax=Math.max(xmax,px);ymin=Math.min(ymin,py);ymax=Math.max(ymax,py);if(end>850)continue;
- for(const z of [p-1,p+1,p-WW,p+WW]){if(z<0||z>=n||seen[z]||mask[z]!==type)continue;let zx=z%WW,zy=(z/WW)|0;if(Math.abs(zx-px)+Math.abs(zy-py)!==1)continue;seen[z]=1;q[end++]=z}
- }
- let w=xmax-xmin+1,h=ymax-ymin+1,ratio=w/h;if(count<3||count>240||w>WW*.22||h>HH*.25||ratio<.27||ratio>3.2)continue;
- let weight=Math.min(35,count);if(type===1)patchesG+=weight;else patchesR+=weight;
- }
- return{g:patchesG,r:patchesR,motion:motion/Math.max(1,compared)};
+const $=id=>document.getElementById(id),now=()=>Date.now(),stamp=()=>new Date().toLocaleTimeString();
+const book={stream:null,video:$('bookVideo'),canvas:$('bookCanvas'),ctx:$('bookCanvas').getContext('2d'),roi:null,prev:null,samples:[],lastMotion:0,task:0},
+ tv={stream:null,video:$('tvVideo'),canvas:$('tvCanvas'),ctx:$('tvCanvas').getContext('2d'),roi:null,history:[],last:null,raw:'',confidence:0,source:'',lastAt:0,task:0,busy:false,lastChartHash:null,lastChartChanged:0,verified:false};
+let monitoring=false,raf=0,worker=null,workerPromise=null,logRows=[],drag=null,lastPaint=0;
+const log=msg=>{$('log').textContent=`[${stamp()}] ${msg}\n`+$('log').textContent.slice(0,7000)};
+const roiRect=(a,b)=>({x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)});
+const clamp=(v)=>Math.max(0,Math.min(1,v));
+const coords=(e,canvas)=>{let r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)/r.width),y:clamp((e.clientY-r.top)/r.height)}};
+function resetBook(){book.prev=null;book.samples=[];book.lastMotion=0}
+function resetTV(){tv.history=[];tv.last=null;tv.lastAt=0;tv.confidence=0;tv.source='';tv.raw='';tv.lastChartHash=null;tv.lastChartChanged=now();tv.verified=false}
+function live(v){return v.readyState>=2&&v.videoWidth>0&&v.videoHeight>0}
+function drawRegion(ctx,canvas,r,color,label){if(!r)return;ctx.lineWidth=3;ctx.strokeStyle=color;ctx.strokeRect(r.x*canvas.width,r.y*canvas.height,r.w*canvas.width,r.h*canvas.height);ctx.fillStyle=color;ctx.font='bold 18px Arial';ctx.fillText(label,Math.max(3,r.x*canvas.width+4),Math.max(20,r.y*canvas.height+21))}
+function drawFrame(obj,time){let {canvas,ctx,video,stream,roi}=obj;if(!stream||!live(video)){ctx.fillStyle='#07111f';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#9ebbd9';ctx.font='18px Arial';ctx.fillText('Share a tab or window to see the preview',24,55);return}
+ let w=video.videoWidth,h=video.videoHeight,targetW=840,targetH=Math.round(targetW*h/w);if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH}
+ ctx.drawImage(video,0,0,canvas.width,canvas.height);drawRegion(ctx,canvas,roi,obj===book?'#5aaeff':'#ffcd7c',obj===book?'NQ heatmap':'TV current price');if(drag&&drag.obj===obj){drawRegion(ctx,canvas,roiRect(drag.start,drag.end),'#fff','Selection')}
 }
-function sampleMarket(m){let s=S[m],r=s.roi,now=Date.now();if(!r||!video.videoWidth||video.readyState<2)return;let vw=video.videoWidth,vh=video.videoHeight;
- let x=Math.max(0,Math.floor(r.x*vw)),y=Math.max(0,Math.floor(r.y*vh)),w=Math.min(vw-x,Math.floor(r.w*vw)),h=Math.min(vh-y,Math.floor(r.h*vh));if(w<20||h<20)return;
- wc.drawImage(video,x,y,w,h,0,0,work.width,work.height);let curr=wc.getImageData(0,0,work.width,work.height).data;
- if(s.prev){let obs=coloredPatchActivity(curr,s.prev,work.width,work.height);if(obs.motion>1.45)s.lastMotion=now;s.history.push({t:now,g:obs.g,r:obs.r,motion:obs.motion});s.history=s.history.filter(v=>now-v.t<65000);
- logRows.push([new Date(now).toISOString(),m,s.entered?s.entered.price:'',obs.g,obs.r,obs.motion.toFixed(2),s.signal]);if(logRows.length>18000)logRows.shift();}
- s.prev=curr;render(m);
+function frameLoop(time){if(time-lastPaint>180){lastPaint=time;drawFrame(book,time);drawFrame(tv,time)}raf=requestAnimationFrame(frameLoop)}
+function setupDraw(obj){let c=obj.canvas;
+ c.addEventListener('pointerdown',e=>{if(!obj.stream)return;drag={obj,start:coords(e,c),end:coords(e,c)};c.setPointerCapture(e.pointerId)});
+ c.addEventListener('pointermove',e=>{if(drag&&drag.obj===obj)drag.end=coords(e,c)});
+ c.addEventListener('pointerup',e=>{if(!drag||drag.obj!==obj)return;let r=roiRect(drag.start,coords(e,c));drag=null;
+  let need=obj===tv?.016:.055;if(r.w<need||r.h<(obj===tv?.012:.075)){log('Selection was too small. Draw around the target again.');return}
+  obj.roi=r;if(obj===book){resetBook();log('Bookmap NQ heatmap region selected; samples reset')}else{resetTV();$('priceCrop').removeAttribute('src');log('TradingView price reading region selected; OCR track reset')}render();});
+ c.addEventListener('pointercancel',()=>{if(drag?.obj===obj)drag=null})}
+setupDraw(book);setupDraw(tv);frameLoop(0);
+function bookPreset(){book.roi={x:.53,y:.20,w:.23,h:.53};resetBook();log('NQ starter area applied. Drag to adjust so it covers only NQ trade bubbles.');render()}
+$('bookPreset').onclick=bookPreset;
+$('tvClear').onclick=()=>{tv.roi=null;resetTV();$('priceCrop').removeAttribute('src');log('TradingView OCR box cleared');render()};
+async function share(obj,kind){try{
+ if(!navigator.mediaDevices?.getDisplayMedia)throw Error('Use Chrome/Edge on an HTTPS website');
+ // This call must run immediately after a button click; each share needs separate permission.
+ const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:12},audio:false});
+ if(obj.stream){for(const track of obj.stream.getTracks())track.stop()}
+ obj.stream=stream;obj.video.srcObject=stream;await obj.video.play();
+ const track=stream.getVideoTracks()[0];track.addEventListener('ended',()=>{if(obj.stream===stream)stopShare(obj,kind)},{once:true});
+ if(obj===book){bookPreset();$('bookShare').textContent='Replace Bookmap share'}else{resetTV();$('tvShare').textContent='Replace TradingView share'}
+ log(kind+' screen shared. Select or verify the highlighted region.');render();
+ }catch(e){log(kind+' capture canceled/failed: '+e.message);$(kind==='Bookmap'?'bookStatus':'tvStatus').textContent='Capture error: '+e.message}}
+$('bookShare').onclick=()=>share(book,'Bookmap');$('tvShare').onclick=()=>share(tv,'TradingView');
+function stopShare(obj,kind){if(obj.stream){for(const t of obj.stream.getTracks())t.stop()}obj.stream=null;obj.video.srcObject=null;
+ if(obj===book){resetBook();$('bookShare').textContent='Share Bookmap'}else{resetTV();$('tvShare').textContent='Share TradingView'}
+ log(kind+' share stopped');if(!book.stream){stopMonitor()}render()}
+$('bookStop').onclick=()=>stopShare(book,'Bookmap');$('tvStop').onclick=()=>stopShare(tv,'TradingView');
+// This classifies ONLY colored pixel changes, not exchange order-flow executions.
+function colorType(r,g,b){let max=Math.max(r,g,b),min=Math.min(r,g,b);if(max-min<40||max<102)return 0;if(g>r*1.17&&g>b*1.08&&g>108)return 1;if(r>g*1.19&&r>b*1.09&&r>115)return -1;return 0}
+const heat=document.createElement('canvas');heat.width=260;heat.height=180;const hc=heat.getContext('2d',{willReadFrequently:true});
+function changingColors(cur,prev,W,H){let green=0,red=0,motion=0,n=0;
+ // Excluding thin border pixels avoids UI text and chart edges; color weighs are proxies only.
+ for(let y=5;y<H-5;y+=2)for(let x=5;x<W-5;x+=2){let p=(y*W+x)*4,d=Math.abs(cur[p]-prev[p])+Math.abs(cur[p+1]-prev[p+1])+Math.abs(cur[p+2]-prev[p+2]);motion+=d;n++;
+ if(d<60)continue;let type=colorType(cur[p],cur[p+1],cur[p+2]);if(type===1)green++;else if(type===-1)red++}
+ return{g:green,r:red,motion:motion/Math.max(1,n)}}
+function captureCrop(obj,r,canvas,context){if(!obj.stream||!live(obj.video)||!r)return false;let v=obj.video,
+ x=Math.max(0,Math.floor(r.x*v.videoWidth)),y=Math.max(0,Math.floor(r.y*v.videoHeight)),w=Math.min(v.videoWidth-x,Math.max(1,Math.floor(r.w*v.videoWidth))),h=Math.min(v.videoHeight-y,Math.max(1,Math.floor(r.h*v.videoHeight)));
+ if(w<5||h<5)return false;context.drawImage(v,x,y,w,h,0,0,canvas.width,canvas.height);return true}
+function sampleBook(){if(!book.stream||!book.roi||!captureCrop(book,book.roi,heat,hc))return;let data=hc.getImageData(0,0,heat.width,heat.height).data,t=now();
+ if(book.prev){let obs=changingColors(data,book.prev,heat.width,heat.height);if(obs.motion>1.2)book.lastMotion=t;
+ book.samples.push({t,...obs});book.samples=book.samples.filter(x=>t-x.t<=65000);logRows.push([new Date(t).toISOString(),tv.last?.p??'',tv.source||'',obs.g,obs.r,obs.motion.toFixed(2),$('signal').textContent]);if(logRows.length>15000)logRows.shift()}
+ book.prev=data;render()}
+const agg=ms=>{let t=now(),a=book.samples.filter(x=>t-x.t<=ms),g=0,r=0;for(let x of a){g+=x.g;r+=x.r}return{g,r,n:a.length,b:(g+r)?(g-r)/(g+r):0}};
+// Tesseract OCR starts only on an explicit Test/Start action. Worker remains within the browser.
+async function getWorker(){if(worker)return worker;if(workerPromise)return workerPromise;
+ if(!window.Tesseract)throw Error('OCR library did not load (internet required).');
+ workerPromise=(async()=>{log('Loading OCR language data…');let w=await Tesseract.createWorker('eng',1);await w.setParameters({tessedit_char_whitelist:'0123456789.,',tessedit_pageseg_mode:'7'});worker=w;log('OCR ready');return w})();
+ try{return await workerPromise}catch(e){workerPromise=null;throw e}}
+const ocrCanvas=document.createElement('canvas'),ocrCtx=ocrCanvas.getContext('2d',{willReadFrequently:true});
+function ocrSnapshot(){let r=tv.roi,v=tv.video;if(!r||!tv.stream||!live(v))return null;
+ const x=Math.floor(clamp(r.x)*v.videoWidth),y=Math.floor(clamp(r.y)*v.videoHeight),w=Math.max(10,Math.floor(r.w*v.videoWidth)),h=Math.max(8,Math.floor(r.h*v.videoHeight));
+ const scale=Math.min(5,Math.max(2,700/w));ocrCanvas.width=Math.min(1300,Math.round(w*scale));ocrCanvas.height=Math.min(550,Math.round(h*scale));
+ let ww=Math.min(w,v.videoWidth-x),hh=Math.min(h,v.videoHeight-y);ocrCtx.drawImage(v,x,y,ww,hh,0,0,ocrCanvas.width,ocrCanvas.height);
+ let mode=$('ocrMode').value;if(mode!=='normal'){let im=ocrCtx.getImageData(0,0,ocrCanvas.width,ocrCanvas.height);for(let i=0;i<im.data.length;i+=4){let lum=.30*im.data[i]+.59*im.data[i+1]+.11*im.data[i+2];let c=mode==='high'?(lum>135?255:0):(lum>135?0:255);im.data[i]=im.data[i+1]=im.data[i+2]=c}ocrCtx.putImageData(im,0,0)}
+ // OCR screenshot is shown to the user, but never uploaded to a server by this app.
+ $('priceCrop').src=ocrCanvas.toDataURL('image/png');return ocrCanvas}
+function parseNQ(raw){let text=(raw||'').replace(/[Oo]/g,'0').replace(/[lI|]/g,'1').replace(/,/g,'');let matches=text.match(/\d{4,6}(?:\.\d{1,2})?/g)||[];
+ let prices=[];for(let m of matches){let p=Number(m);if(p>1000&&p<100000&&Math.abs(p*4-Math.round(p*4))<.02)prices.push(p)}return [...new Set(prices)]}
+function acceptPrice(p,source,conf){let t=now();if(!Number.isFinite(p)||p<=0)return false;
+ let old=tv.last;if(old){let dt=(t-old.t)/1000;
+ // Reject gross OCR jumps. A reset lets the user intentionally re-anchor after real gap moves.
+ let maxJump=Math.max(70,Math.min(180,8*dt+25));if(Math.abs(p-old.p)>maxJump){log(`Rejected ${source} price ${p.toFixed(2)}: jumps ${Math.abs(p-old.p).toFixed(2)} points from last reading. Use Reset price track if chart changed contracts.`);return false}}
+ tv.last={p,t};tv.lastAt=t;tv.source=source;tv.confidence=conf;tv.history.push({p,t,source});tv.history=tv.history.filter(x=>t-x.t<75000);return true}
+async function readPrice(){if(tv.busy||!tv.stream||!tv.roi)return;tv.busy=true;
+ try{let crop=ocrSnapshot();if(!crop)throw Error('No readable selected region');let w=await getWorker(),res=await w.recognize(crop),text=(res?.data?.text||'').trim(),confidence=Math.round(res?.data?.confidence||0),prices=parseNQ(text);tv.raw=text||'(blank)';
+ if(prices.length!==1){log('TV OCR ambiguous: '+JSON.stringify(text)+'; select only ONE clearly readable price.');return}
+ if(confidence<43){log('TV OCR low confidence '+confidence+'%: '+text);return}
+ if(acceptPrice(prices[0],'TradingView OCR',confidence)){log('TV: '+prices[0].toFixed(2)+' ('+confidence+'%). '+(tv.verified?'Tracking verified price':'Confirm first displayed price before trusting direction.'))}
+ }catch(e){log('TV OCR failed: '+e.message)}finally{tv.busy=false;render()}}
+$('testPrice').onclick=()=>readPrice();
+$('confirmPrice').onclick=()=>{if(!tv.last||tv.source!=='TradingView OCR')return;tv.verified=true;tv.history=[tv.last];log('User visually confirmed the initial TradingView OCR price '+tv.last.p.toFixed(2));render()};
+$('useManual').onclick=()=>{let el=$('manualPrice'),p=Number(el.value);if(!el.value||!Number.isFinite(p)||p<=0||Math.abs(p*4-Math.round(p*4))>.02){el.setCustomValidity('Enter an NQ price in 0.25-point increments');el.reportValidity();return}el.setCustomValidity('');
+ if(!acceptPrice(p,'Manual snapshot',100))return;tv.raw='Manually entered';tv.verified=true;log('Manual price snapshot '+p.toFixed(2));render()};
+$('manualPrice').addEventListener('keydown',e=>{if(e.key==='Enter')$('useManual').click()});
+$('reset').onclick=()=>{resetTV();log('Price track reset. The next accepted OCR or manual price establishes a new baseline.');render()};
+const sampleTVHash=document.createElement('canvas');sampleTVHash.width=64;sampleTVHash.height=32;const th=sampleTVHash.getContext('2d',{willReadFrequently:true});
+function checkTVFrame(){if(!tv.stream||!live(tv.video))return;let v=tv.video;
+ th.drawImage(v,v.videoWidth*.18,v.videoHeight*.28,v.videoWidth*.62,v.videoHeight*.50,0,0,64,32);let a=th.getImageData(0,0,64,32).data,hash=0;
+ for(let i=0;i<a.length;i+=37){hash=(Math.imul(hash,31)+a[i]+2*a[i+1]+3*a[i+2])|0}if(hash!==tv.lastChartHash){tv.lastChartHash=hash;tv.lastChartChanged=now()}}
+function priceDelta(){let t=now(),arr=tv.history.filter(x=>t-x.t<=65000),latest=arr.at(-1);if(!latest)return null;let prior=arr.filter(x=>latest.t-x.t>=20000).at(-1);if(!prior)return null;return{delta:latest.p-prior.p,seconds:Math.round((latest.t-prior.t)/1000)}}
+function render(){let b15=agg(15000),b60=agg(60000),tot=b15.g+b15.r,span=book.samples.length?book.samples.at(-1).t-book.samples[0].t:0,bookFrozen=book.lastMotion&&now()-book.lastMotion>12000,
+ priceAge=tv.lastAt?now()-tv.lastAt:Infinity,delta=priceDelta(),label='WAIT',reason='';
+ $('bookStatus').textContent=book.stream?(book.roi?'Sharing • NQ region selected':'Sharing • draw NQ region'):'Not sharing';$('tvStatus').textContent=tv.stream?(tv.roi?'Sharing • price box selected':'Sharing • draw around current price'):'Not sharing';
+ $('bookStop').disabled=!book.stream;$('tvStop').disabled=!tv.stream;$('bookPreset').disabled=!book.stream;$('testPrice').disabled=!tv.stream||!tv.roi;$('confirmPrice').disabled=!tv.last||tv.source!=='TradingView OCR'||tv.verified;
+ $('start').disabled=monitoring||!book.stream||!book.roi||(!tv.stream&&!tv.last);$('pause').disabled=!monitoring;
+ $('nqPrice').textContent=tv.last?tv.last.p.toFixed(2):'—';$('priceSource').textContent=tv.source||'—';$('confidence').textContent=tv.source==='TradingView OCR'?tv.confidence+'%':tv.source?'Manual input':'—';$('rawRead').textContent=tv.raw||'—';$('verified').textContent=tv.verified?'Yes':'No';$('priceAge').textContent=tv.lastAt?Math.round(priceAge/1000)+' s':'—';
+ $('priceMove').textContent=delta?(delta.delta>=0?'+':'')+delta.delta.toFixed(2)+' pts / '+delta.seconds+' s':'—';
+ const fmt=x=>(x.g+x.r)?Math.round(100*x.g/(x.g+x.r))+'% green / '+Math.round(100*x.r/(x.g+x.r))+'% red':'—';
+ $('book15').textContent=fmt(b15);$('book60').textContent=fmt(b60);$('bookMotion').textContent=book.lastMotion?(bookFrozen?'possibly frozen':'changing'):'not established';$('bookSamples').textContent=book.samples.length;
+ $('greenbar').style.width=(tot?100*b15.g/tot:0)+'%';$('redbar').style.width=(tot?100*b15.r/tot:0)+'%';
+ let priceIsFresh=priceAge<(tv.source==='Manual snapshot'?12000:13000),tvChartFrozen=tv.stream&&tv.lastChartChanged&&now()-tv.lastChartChanged>16000;
+ if(!monitoring)reason='Click Start NQ monitoring when Bookmap and TradingView are ready.';
+ else if(!book.stream||!book.roi)reason='Share Bookmap and select only NQ heatmap bubbles.';
+ else if(book.samples.length<10||span<20000)reason='Collecting at least 20 seconds of Bookmap video changes.';
+ else if(bookFrozen||!book.lastMotion)reason='Bookmap video seems frozen or has no measurable movement in the selected NQ region.';
+ else if(b15.g+b15.r<10||b60.g+b60.r<25)reason='Bookmap chart has too little detectable red/green changing activity.';
+ else if(!tv.last||!priceIsFresh)reason='TradingView current price is absent or stale. Verify its OCR crop or update the manual price.';
+ else if(!tv.verified)reason='Visually compare the TradingView OCR price to your chart and click Confirm detected price.';
+ else if(tvChartFrozen&&tv.source==='TradingView OCR')reason='TradingView screen may be frozen. Check that its chart is updating.';
+ else if(!delta)reason='Collecting at least 20 seconds of correctly read TradingView prices.';
+ else{let threshold=Math.max(.25,Number($('moveThreshold').value)||3);let vb=b15.b;
+ if(Math.abs(delta.delta)<threshold){label='NEUTRAL';reason='NQ price movement is below the selected threshold.'}
+ else if(Math.abs(vb)<.20||Math.abs(b60.b)<.10){label='NEUTRAL';reason='Changing Bookmap colors are mixed or weak.'}
+ else if(vb>.20&&b60.b>.10&&delta.delta>=threshold){label='BULLISH';reason='TradingView price rose and green changing-shape activity dominated Bookmap in both windows. This is not validated buy-side order flow.'}
+ else if(vb<-.20&&b60.b<-.10&&delta.delta<=-threshold){label='BEARISH';reason='TradingView price fell and red changing-shape activity dominated Bookmap in both windows. This is not validated sell-side order flow.'}
+ else{label='NEUTRAL';reason='Price direction and Bookmap visual activity do not agree.'}}
+ let el=$('signal');el.textContent=label;el.className='signal '+(label==='BULLISH'?'bull':label==='BEARISH'?'bear':label==='NEUTRAL'?'neutral':'');
+ $('quality').textContent=label==='WAIT'?'INSUFFICIENT DATA':'VISUAL ESTIMATE';$('quality').className='tag '+(label==='WAIT'?'bad':'ok');$('reason').textContent=reason;
+ $('overallStatus').textContent=`Bookmap: ${book.stream?'shared':'not shared'} • TradingView: ${tv.stream?'shared':'not shared'} • ${monitoring?'Monitoring':'Paused'} • YouTube/TradingView latency not synchronized`;
 }
-const agg=(history,ms)=>{let data=history.filter(v=>v.t>=Date.now()-ms),g=0,r=0;for(let o of data){g+=o.g;r+=o.r}return{g,r,n:data.length,bias:(g+r)>0?(g-r)/(g+r):0}};
-function render(m){let s=S[m],id=m.toLowerCase(),a15=agg(s.history,15000),a60=agg(s.history,60000),age=Date.now()-s.lastMotion,signal='WAIT',reason='',quality='Not monitoring',showBias=a=>a.g+a.r>0?`${Math.round(a.g/(a.g+a.r)*100)}% green / ${Math.round(a.r/(a.g+a.r)*100)}% red`:'—';
- const duration=s.history.length?s.history[s.history.length-1].t-s.history[0].t:0;
- if(!stream){reason='Share the Bookmap video.'}
- else if(!s.roi){reason='Draw a region around this market’s trade bubbles.'}
- else if(!running){reason='Click Start visual assessment.'}
- else if(!s.prev||s.history.length<9||duration<20000){reason='Calibrating: collecting changing video frames.';quality='Collecting samples'}
- else if(age>12000){reason='Video seems frozen or not changing inside this chart box.';quality='Possibly frozen'}
- else if(a15.g+a15.r<10||a60.g+a60.r<22){reason='Not enough recognizable changing red/green shapes. Enlarge the video or redraw the chart box.';quality='Insufficient visible activity'}
- else{let b1=a15.bias,b60=a60.bias;if(b1>.22&&b60>.11&&a15.g>12){signal='BULLISH';reason='Green changing-shape activity dominates the recent video, across both windows.'}
- else if(b1<-.22&&b60<-.11&&a15.r>12){signal='BEARISH';reason='Red changing-shape activity dominates the recent video, across both windows.'}
- else{signal='NEUTRAL';reason='Visual red/green activity is mixed or the short and longer windows disagree.'}quality='Visual estimate only — verify chart manually'}
- s.signal=signal;let el=$(id+'Signal');el.textContent=signal;el.className='signal '+(signal==='BULLISH'?'bull':signal==='BEARISH'?'bear':signal==='NEUTRAL'?'neutral':'');
- $(id+'Ratio').textContent=a15.g+a15.r?`${a15.g} / ${a15.r} (shape weight)`:'—';$(id+'15').textContent=showBias(a15);$(id+'60').textContent=showBias(a60);$(id+'Motion').textContent=s.lastMotion?age<12000?'Changing':'Possibly frozen':'Not checked';$(id+'Samples').textContent=s.history.length;
- let total=a15.g+a15.r,gPct=total?100*a15.g/total:0,rPct=total?100*a15.r/total:0;$(id+'Green').style.width=gPct+'%';$(id+'Red').style.width=rPct+'%';$(id+'Pill').textContent=quality;$(id+'Pill').className='pill'+(signal==='BULLISH'||signal==='BEARISH'?' good':signal==='WAIT'?' bad':'');$(id+'Reason').textContent=reason;
-}
-function runSample(){if(!running||!stream)return;for(let m of M)sampleMarket(m);$('freshness').textContent='Last video sample: '+new Date().toLocaleTimeString()+' (YouTube/live source latency unknown)';status('Analyzing shared video • no OCR • '+new Date().toLocaleTimeString())}
-$('start').onclick=()=>{if(!stream)return;if(!S.ES.roi||!S.NQ.roi){log('Missing one or both market regions. Use Side-by-side preset or draw boxes.');return}M.forEach(resetSamples);running=true;$('start').disabled=true;$('pause').disabled=false;clearInterval(timer);timer=setInterval(runSample,Number($('frequency').value));runSample();M.forEach(render);log('Visual assessment started. BULLISH/BEARISH refer only to video-color patterns.')};
-$('pause').onclick=()=>{stopAssessment();M.forEach(render);status('Assessment paused');log('Assessment paused')};
-$('frequency').onchange=()=>{if(running){clearInterval(timer);timer=setInterval(runSample,Number($('frequency').value));log('Sampling interval changed')}};
-$('csv').onclick=()=>{let rows=[['time_utc','market','manual_reference_price','green_changed_shape_weight','red_changed_shape_weight','video_motion_score','video_label'],...logRows];let csv=rows.map(v=>v.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');let u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));let a=document.createElement('a');a.href=u;a.download='bookmap-v4-visual-observations.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)};
-window.addEventListener('beforeunload',()=>{if(stream)for(let t of stream.getTracks())t.stop();cancelAnimationFrame(raf);clearInterval(timer)});
-M.forEach(render);display();
+function stopMonitor(){monitoring=false;if(book.task){clearInterval(book.task);book.task=0}if(tv.task){clearInterval(tv.task);tv.task=0}render()}
+function schedule(){clearInterval(book.task);clearInterval(tv.task);book.task=setInterval(()=>{if(monitoring)sampleBook()},Number($('bookEvery').value));tv.task=setInterval(async()=>{if(monitoring){checkTVFrame();if(tv.stream&&tv.roi)await readPrice();render()}},Number($('tvEvery').value))}
+$('start').onclick=()=>{if(!book.stream||!book.roi){log('Share Bookmap and select NQ region first');return}
+ if(!tv.stream&&!tv.last){log('Share TradingView or enter a manual price first');return}
+ resetBook();monitoring=true;schedule();sampleBook();checkTVFrame();if(tv.stream&&tv.roi)readPrice();log('Started NQ dual-source observations (not validated trading signals).');render()};
+$('pause').onclick=()=>{stopMonitor();log('NQ monitoring paused')};
+$('bookEvery').onchange=()=>{if(monitoring)schedule()};$('tvEvery').onchange=()=>{if(monitoring)schedule()};
+$('moveThreshold').onchange=render;
+$('csv').onclick=()=>{const rows=[['timestamp_utc','tv_nq_price','price_source','bookmap_green_visual_changes','bookmap_red_visual_changes','video_motion','nq_label'],...logRows],data=rows.map(row=>row.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');let blob=new Blob([data],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nq-dual-source-v5.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+window.addEventListener('beforeunload',()=>{stopMonitor();for(let o of [book,tv])if(o.stream)for(let t of o.stream.getTracks())t.stop();cancelAnimationFrame(raf);if(worker)worker.terminate()});
+setInterval(render,1000);render();
 })();
 </script>
 </body>
