@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NQ Bookmap Monitor V9 — 15s / 1m / 5m Alignment + Voice</title>
+<title>NQ Bookmap Monitor V10 — 15s / 1m / 5m Alignment + Voice</title>
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:#0b1322;color:#e8f1ff;--card:#14233b;--stroke:#304b6b;--muted:#a4bbd5;--blue:#4285f4;--green:#55ddb0;--red:#ff7e95;--amber:#ffda8b}
 *{box-sizing:border-box}body{margin:0}
@@ -61,7 +61,7 @@ ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
 </style>
 </head>
 <body>
-<header><h1>NQ Bookmap Monitor <span style="color:#85b7ff">V9</span></h1><p class="muted">Single source: NQ YouTube Bookmap stream • trade bubbles + where resting orders are stacking on the heatmap • 15 s / 1 m / 5 m assessments • speaks BUY when all three are bullish, SELL when all three are bearish</p></header>
+<header><h1>NQ Bookmap Monitor <span style="color:#85b7ff">V10</span></h1><p class="muted">Single source: NQ YouTube Bookmap stream • trade bubbles + where resting orders are stacking on the heatmap • 15 s / 1 m / 5 m assessments • speaks BUY when all three are bullish, SELL when all three are bearish</p></header>
 <div class="shell">
 <div class="warn"><strong>Visual estimate, not exchange data.</strong> The heatmap brightness and bubble colors are read from video pixels. Resting liquidity can be pulled or spoofed. The YouTube stream also lags the exchange by several seconds or more, and that lag can't be removed. Validate before acting.</div>
 
@@ -94,6 +94,8 @@ ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
       <button id="csv" class="secondary">Download CSV</button>
       <label><input type="checkbox" id="pVoice" checked> Speak Buy / Sell</label>
       <button id="testVoice" class="secondary">Test voice</button>
+      <button id="simBuy" class="secondary">Simulate BUY</button>
+      <button id="simSell" class="secondary">Simulate SELL</button>
     </div>
     <p class="muted" style="margin:4px 0">The main signal is <strong>BUY</strong> only when the 15 s, 1 m and 5 m intervals are all BULLISH, and <strong>SELL</strong> only when all three are BEARISH. Anything else shows WAIT. The detail interval only chooses which score the gauge, chart and component readouts show. Frames are captured every 250 ms, so every interval updates live.</p>
     <div id="overallStatus" class="state">Share the Bookmap stream and select the NQ region.</div>
@@ -110,6 +112,7 @@ ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
         <label>Momentum lookback (s) <input type="number" id="pMomentum" value="5" min="1" max="60" step="1"></label>
 
         <div class="pgroup">BUY / SELL alignment</div>
+        <label>Alert trigger <select id="pTrigger"><option value="all3" selected>15s + 1m + 5m all aligned</option><option value="15_1m">15s + 1m aligned</option><option value="15s">15s label only</option></select></label>
         <label>1m & 5m count as aligned when <select id="pAlignMode"><option value="labels" selected>Label is BULLISH/BEARISH</option><option value="trend">Trend leans that way</option></select></label>
         <label>Trend lean threshold <input type="number" id="pFiltMin" value="0.10" min="0" max="1" step="0.05"></label>
         <label>Trend hold fraction <input type="number" id="pFiltHold" value="0.5" min="0" max="1" step="0.05"></label>
@@ -185,6 +188,7 @@ ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
       <span>1 minute</span><strong id="a60">—</strong>
       <span>5 minutes</span><strong id="a300">—</strong>
       <span>Last spoken alert</span><strong id="aLast">—</strong>
+      <span>Voice / timer health</span><strong id="aHealth">—</strong>
     </div>
     <h3 style="margin-top:12px">All intervals</h3>
     <table class="mtf"><thead><tr><th>Int.</th><th>Signal</th><th>Score</th><th>Bias</th><th>Drift</th><th>Liq</th><th>Stack</th><th>Conf</th></tr></thead><tbody id="mtfBody"></tbody></table>
@@ -241,7 +245,7 @@ const $=id=>document.getElementById(id),now=()=>Date.now(),stamp=()=>new Date().
 const num=(id,def)=>{const v=Number($(id).value);return Number.isFinite(v)?v:def};
 const TFS=[15,60,300],HTF=[60,300],tfName=tf=>tf>=60?(tf/60)+'m':tf+'s';
 const P=()=>({
-  tf:Number($('pTf').value)||15,alignMode:$('pAlignMode').value,filtMin:Math.max(0,num('pFiltMin',.10)),filtHold:clamp01(num('pFiltHold',.5)),filtFill:clamp01(num('pFiltFill',30)/100),alignConfirm:Math.max(1,Math.round(num('pAlignConfirm',2))),cooldown:num('pCooldown',30)*1000,voice:$('pVoice').checked,buyText:$('pBuyText').value||'Buy',sellText:$('pSellText').value||'Sell',exitText:$('pExitText').value||'Flat',repeat:num('pRepeat',0)*1000,speakExit:$('pSpeakExit').checked,voiceRate:num('pVoiceRate',1.1),voiceVol:clamp01(num('pVoiceVol',1)),every:num('pEvery',250),warm:Math.max(.5,num('pWarm',2))*1000,
+  tf:Number($('pTf').value)||15,alignMode:$('pAlignMode').value,trigger:$('pTrigger').value,filtMin:Math.max(0,num('pFiltMin',.10)),filtHold:clamp01(num('pFiltHold',.5)),filtFill:clamp01(num('pFiltFill',30)/100),alignConfirm:Math.max(1,Math.round(num('pAlignConfirm',2))),cooldown:num('pCooldown',30)*1000,voice:$('pVoice').checked,buyText:$('pBuyText').value||'Buy',sellText:$('pSellText').value||'Sell',exitText:$('pExitText').value||'Flat',repeat:num('pRepeat',0)*1000,speakExit:$('pSpeakExit').checked,voiceRate:num('pVoiceRate',1.1),voiceVol:clamp01(num('pVoiceVol',1)),every:num('pEvery',250),warm:Math.max(.5,num('pWarm',2))*1000,
   enter:num('pEnter',.30),exit:Math.min(num('pExit',.15),num('pEnter',.30)),confirm:Math.max(1,Math.round(num('pConfirm',2))),
   recency:Math.max(0,num('pRecency',1)),momentum:num('pMomentum',5)*1000,
   wB:Math.max(0,num('pWBias',1)),wD:Math.max(0,num('pWDrift',1)),wL:Math.max(0,num('pWLiq',1.2)),wS:Math.max(0,num('pWStack',.8)),
@@ -444,16 +448,26 @@ function tfVote(p,tf){const s=st[tf];if(!monitoring||!s.res||s.label==='WAIT')re
   const h=htf[tf];if(!h.ready)return 0;
   if(p.alignMode==='trend')return h.dir;
   return s.label==='BULLISH'?1:s.label==='BEARISH'?-1:0}
-function speak(text,p){if(!p.voice||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=p.voiceRate;u.volume=p.voiceVol;u.lang='en-US';speechSynthesis.speak(u)}catch(e){log('Speech failed: '+e.message)}}
-function applyAlign(p,t){updateHtf(p);const votes=TFS.map(tf=>tfVote(p,tf));
+let lastUtter=null,voiceStat='not used yet';
+// Chrome quirks handled: background tabs can leave the synth paused (resume), cancel()+speak() in the same tick can drop the
+// utterance (small delay), and utterances can be garbage-collected mid-speech (keep a reference).
+function speak(text,p,force){if(!(p.voice||force))return;if(!('speechSynthesis' in window)){voiceStat='no speech synthesis in this browser';log(voiceStat);return}
+  try{const go=()=>{const u=new SpeechSynthesisUtterance(text);u.rate=p.voiceRate;u.volume=p.voiceVol;u.lang='en-US';lastUtter=u;
+      u.onstart=()=>{voiceStat=`spoke "${text}" ${stamp()}`};u.onerror=e=>{voiceStat='speech error: '+e.error;log('Speech error: '+e.error)};
+      speechSynthesis.resume();speechSynthesis.speak(u);voiceStat=`queued "${text}" ${stamp()}`;
+      setTimeout(()=>{if(lastUtter===u&&voiceStat.startsWith('queued')){log('Voice did not start within 3s. Click anywhere on this page once, then use Simulate BUY.');voiceStat='blocked? click the page once'}},3000)};
+    if(speechSynthesis.speaking||speechSynthesis.pending){speechSynthesis.cancel();setTimeout(go,80)}else go()}
+  catch(e){voiceStat='speech failed: '+e.message;log(voiceStat)}}
+const trigTfs=p=>p.trigger==='15s'?[15]:p.trigger==='15_1m'?[15,60]:TFS;
+function applyAlign(p,t){updateHtf(p);const used=trigTfs(p),votes=used.map(tf=>tfVote(p,tf));
   let target='WAIT';if(votes.every(v=>v===1))target='BUY';else if(votes.every(v=>v===-1))target='SELL';
-  const why=TFS.map((tf,i)=>`${tfName(tf)} ${votes[i]>0?'▲':votes[i]<0?'▼':'·'}`).join(' ');align.votes=votes;align.why=why;
+  const why=used.map((tf,i)=>`${tfName(tf)} ${votes[i]>0?'▲':votes[i]<0?'▼':'·'}`).join(' ');align.votes=votes;align.why=why;
   let label=target;
   if(target!==align.label&&target!=='WAIT'){if(align.pending===target)align.pendingCount++;else{align.pending=target;align.pendingCount=1}
     if(align.pendingCount<p.alignConfirm)label=align.label}else{align.pending=null;align.pendingCount=0}
   if(label!==align.label){const prevL=align.label;align.label=label;const sc=st[15].res?st[15].res.score:0;
     align.changes.unshift({t,label,why,score:sc});align.changes=align.changes.slice(0,40);
-    log(`[ALIGN] ${prevL} → ${label} | ${why} | 15s ${fmtS(st[15].res?.score)} 1m ${fmtS(st[60].res?.score)} 5m ${fmtS(st[300].res?.score)}`);
+    log(`[ALIGN ${p.trigger}] ${prevL} → ${label} | ${why} | 15s ${fmtS(st[15].res?.score)} 1m ${fmtS(st[60].res?.score)} 5m ${fmtS(st[300].res?.score)}`);
     if(label==='BUY'||label==='SELL'){
       if(t-align.lastSpoken[label]>=p.cooldown){const txt=label==='BUY'?p.buyText:p.sellText;speak(txt,p);align.lastSpoken[label]=t;align.lastSpokenText=txt;align.lastSpokenAt=t;align.lastRepeat=t;log(`Spoke "${txt}"`)}
       else log(`${label} alert suppressed (cooldown ${Math.round((p.cooldown-(t-align.lastSpoken[label]))/1000)}s left)`);
@@ -481,9 +495,10 @@ function render(){const p=P(),t=now(),S=st[p.tf],res=S.res;
   $('bookStop').disabled=!book.stream;$('bookPreset').disabled=!book.stream;$('start').disabled=monitoring||!book.stream||!book.roi;$('pause').disabled=!monitoring;
   const label=monitoring?align.label:'WAIT',el=$('signal');el.textContent=label;el.className='signal '+(label==='BUY'?'bull':label==='SELL'?'bear':'');
   const chip=tf=>{const l=monitoring?st[tf].label:'WAIT';return `${tfName(tf)} <strong class="${cls(l)}">${l}</strong>`};
-  $('rawLine').innerHTML=monitoring?TFS.map(chip).join(' &nbsp;•&nbsp; ')+(align.pending&&align.pending!==align.label?` &nbsp;→ confirming ${align.pending} ${align.pendingCount}/${p.alignConfirm}`:''):'—';
+  $('rawLine').innerHTML=monitoring?TFS.map(chip).join(' &nbsp;•&nbsp; ')+` &nbsp;<span class="muted">(trigger: ${p.trigger==='all3'?'all 3':p.trigger==='15_1m'?'15s + 1m':'15s only'})</span>`+(align.pending&&align.pending!==align.label?` &nbsp;→ confirming ${align.pending} ${align.pendingCount}/${p.alignConfirm}`:''):'—';
   for(const tf of TFS){const s=st[tf],r=s.res,h=htf[tf],v=tfVote(p,tf);
     $('a'+tf).innerHTML=!monitoring||!r?'—':`<span class="${v>0?'bull':v<0?'bear':'neutral'}">${v>0?'▲ aligned bull':v<0?'▼ aligned bear':'· not aligned'}</span> ${s.label} ${fmtS(r.score)}${tf!==15&&h&&!h.ready?' • warming '+Math.round(r.fill*100)+'%':''}`}
+  $('aHealth').textContent=`${voiceStat} • ${document.hidden?'TAB HIDDEN':'tab visible'} • tick gap ${lastTick?Math.round(maxGap)+' ms':'—'}`;
   $('aLast').textContent=align.lastSpokenAt?`"${align.lastSpokenText}" at ${new Date(align.lastSpokenAt).toLocaleTimeString()}`:'—';
   $('quality').textContent=!monitoring?'PAUSED':label==='WAIT'?'NO ALIGNMENT':'ALL 3 ALIGNED';$('quality').className='tag '+(label==='WAIT'?'bad':'ok');
   $('thL').style.left=(50-50*p.enter)+'%';$('thR').style.left=(50+50*p.enter)+'%';
@@ -512,8 +527,16 @@ function render(){const p=P(),t=now(),S=st[p.tf],res=S.res;
   $('overallStatus').textContent=`Bookmap: ${book.stream?'shared':'not shared'} • ${monitoring?'Monitoring':'Paused'} • capture ${p.every} ms • detail ${tfName(p.tf)} • alignment ${p.alignMode} • voice ${p.voice?'on':'off'} • liquidity read as ${p.liqMode==='magnet'?'magnet':'support/resistance'} • YouTube delay not removable`}
 
 /* ---------- Control ---------- */
-function stopMonitor(){monitoring=false;if(book.task){clearInterval(book.task);book.task=0}render()}
-function schedule(){clearInterval(book.task);book.task=setInterval(()=>{if(monitoring)sample()},P().every)}
+function stopMonitor(){monitoring=false;if(book.task){clearInterval(book.task);book.task=0}if(tickWorker)tickWorker.postMessage(0);render()}
+let tickWorker=null,lastTick=0,gapWarnAt=0,maxGap=0;
+function onTick(){const t=now(),every=P().every;if(lastTick){const gap=t-lastTick;maxGap=Math.max(maxGap*.98,gap);
+    if(gap>Math.max(3*every,1500)&&t-gapWarnAt>10000){gapWarnAt=t;log(`Sampling gap ${(gap/1000).toFixed(1)}s (expected ${every}ms). The browser throttled this tab. Keep the monitor in its own visible window.`)}}
+  lastTick=t;if(monitoring)sample()}
+function schedule(){const every=P().every;clearInterval(book.task);book.task=0;lastTick=0;
+  try{if(!tickWorker){const src='let id=0;onmessage=e=>{clearInterval(id);if(e.data>0)id=setInterval(()=>postMessage(1),e.data)}';
+      tickWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));tickWorker.onmessage=onTick}
+    tickWorker.postMessage(every)}
+  catch(e){log('Worker timer unavailable ('+e.message+'); using page timer. Background tabs may be throttled.');book.task=setInterval(onTick,every)}}
 $('start').onclick=()=>{if(!book.stream||!book.roi){log('Share Bookmap and select the NQ region first');return}
   if(P().voice&&'speechSynthesis' in window){try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}
   resetBook(true);monitoring=true;schedule();sample();const p=P();
@@ -523,12 +546,16 @@ $('resetBtn').onclick=()=>{resetBook(false);log('History reset');render()};
 $('pEvery').onchange=()=>{if(monitoring)schedule();log('Capture rate → '+P().every+' ms')};
 $('pTf').onchange=()=>{log('Detail interval → '+tfName(P().tf));render()};
 $('testVoice').onclick=()=>{const p=P();if(!('speechSynthesis' in window)){log('This browser has no speech synthesis');return}const v=p.voice;p.voice=true;speak(p.buyText,p);setTimeout(()=>speak(p.sellText,p),900);p.voice=v;log('Voice test played')};
+$('simBuy').onclick=()=>{const p=P();log(`Simulated BUY → speaking "${p.buyText}"${p.voice?'':' (voice checkbox is OFF, so forcing it for this test)'}`);speak(p.buyText,p,true);render()};
+$('simSell').onclick=()=>{const p=P();log(`Simulated SELL → speaking "${p.sellText}"${p.voice?'':' (voice checkbox is OFF, so forcing it for this test)'}`);speak(p.sellText,p,true);render()};
+document.addEventListener('visibilitychange',()=>log(document.hidden?'Monitor tab hidden. If sampling gaps appear, move the monitor into its own window.':'Monitor tab visible'));
+$('pTrigger').onchange=()=>log('Alert trigger → '+$('pTrigger').value);
 $('pVoice').onchange=()=>log('Voice → '+($('pVoice').checked?'on':'off'));
 document.querySelectorAll('.params input,.params select').forEach(e=>{if(e.id!=='pEvery')e.addEventListener('change',()=>{log(`Param ${e.id} → ${e.type==='checkbox'?e.checked:e.value}`);render()})});
 $('csv').onclick=()=>{const head=['timestamp_utc','green_new_px','red_new_px','video_motion','edge_centroid_y','price_ref_y','liq_imbalance_now','bid_liq','ask_liq','bid_wall_dist','ask_wall_dist'];
   for(const tf of TFS)head.push(`s${tf}_score`,`s${tf}_bias`,`s${tf}_drift`,`s${tf}_liq`,`s${tf}_stack`,`s${tf}_conf`,`s${tf}_label`);head.push("trend_1m_dir","trend_5m_dir","alignment_signal","alignment_votes");
   const data=[head,...logRows].map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n'),blob=new Blob([data],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='nq-bookmap-v9.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+  a.href=url;a.download='nq-bookmap-v10.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 window.addEventListener('beforeunload',()=>{stopMonitor();if(book.stream)for(const t of book.stream.getTracks())t.stop();cancelAnimationFrame(raf)});
 setInterval(render,1000);render();
 })();
