@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NQ Bookmap Monitor V6 — 15s Live Assessment</title>
+<title>NQ Bookmap Monitor V8 — Order Flow + Liquidity + 1m/5m Filter</title>
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:#0b1322;color:#e8f1ff;--card:#14233b;--stroke:#304b6b;--muted:#a4bbd5;--blue:#4285f4;--green:#55ddb0;--red:#ff7e95;--amber:#ffda8b}
 *{box-sizing:border-box}body{margin:0}
@@ -11,7 +11,7 @@ h1{margin:0 0 6px;font-size:clamp(21px,2.5vw,28px)}h2{margin:0 0 10px;font-size:
 p{margin:8px 0;line-height:1.5}.muted{color:var(--muted);font-size:13px}
 .shell{max-width:1430px;margin:0 auto;padding:16px 18px 32px}
 .warn{border:1px solid #967142;background:#332a1e;color:#ffe4ae;border-radius:10px;padding:10px 14px;font-size:12.5px;line-height:1.5}
-.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,1fr);gap:15px;margin-top:14px}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,1fr);gap:15px;margin-top:14px}
 .panel{background:var(--card);border:1px solid var(--stroke);padding:15px;border-radius:12px}
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:9px 0}.row.stretch{justify-content:space-between}
 button,input,select{font:inherit}
@@ -28,89 +28,133 @@ label{font-size:12.5px;color:#cfe0f4}a{color:#abd0ff}
 .tag{display:inline-block;background:#334963;color:#c5dfff;padding:4px 9px;border-radius:30px;font-size:11px}
 .tag.ok{color:#b4f4dc;background:#1f5a49}.tag.bad{color:#ffe1aa;background:#644127}
 .signal{font-size:44px;font-weight:850;letter-spacing:.8px;color:#c5d4e9;line-height:1.1;margin:6px 0}
-.signal.bull{color:var(--green)}.signal.bear{color:var(--red)}.signal.neutral{color:var(--amber)}
+.bull{color:var(--green)!important}.bear{color:var(--red)!important}.neutral{color:var(--amber)!important}
 .momentum{font-size:15px;font-weight:700;color:#c9e1ff;margin:2px 0 6px}
-.kvs{display:grid;grid-template-columns:minmax(130px,1fr) auto;gap:8px 12px;font-size:13px;margin:12px 0}
+.kvs{display:grid;grid-template-columns:minmax(140px,1fr) auto;gap:7px 12px;font-size:13px;margin:12px 0}
 .kvs strong{text-align:right;font-variant-numeric:tabular-nums}
 .rule{border:0;border-top:1px solid var(--stroke);margin:14px 0}
 .gauge{position:relative;height:16px;border-radius:9px;background:linear-gradient(90deg,#7a2b3a 0%,#3a3f4f 50%,#1f6b52 100%);margin:10px 0 4px}
 .gauge .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#cfd8e6}
-.gauge .needle{position:absolute;top:-5px;width:6px;height:26px;margin-left:-3px;border-radius:3px;background:#fff;box-shadow:0 0 6px #000;transition:left .25s}
+.gauge .needle{position:absolute;top:-5px;width:6px;height:26px;margin-left:-3px;border-radius:3px;background:#fff;box-shadow:0 0 6px #000;transition:left .2s}
 .gauge .th{position:absolute;top:0;bottom:0;width:1px;background:#ffffff55}
 .twin{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:3px 0 10px}
 .meter{height:11px;border-radius:9px;overflow:hidden;background:#293e58;display:flex}
-.meter span:first-child{background:#4fd3a4}.meter span:last-child{background:#db697c}
+.meter.gr span:first-child{background:#4fd3a4}.meter.gr span:last-child{background:#db697c}
+.meter.liq span:first-child{background:#4d9fff}.meter.liq span:last-child{background:#ff9a4d}
 #spark{width:100%;height:110px;display:block;background:#07111f;border-radius:7px;border:1px solid #2d4560}
 .log{font:12px Consolas,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;background:#07111f;border-radius:7px;padding:9px;color:#bcd2ee;margin-top:8px}
-.params{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px 14px;margin-top:8px}
+.params{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px 14px;margin-top:8px}
 .params label{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pgroup{grid-column:1/-1;font-size:12px;font-weight:700;color:#8fb6e0;margin-top:6px;border-bottom:1px solid #2a4160;padding-bottom:3px}
 details summary{cursor:pointer;font-weight:650;font-size:14px;margin:4px 0}
+table.mtf{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.mtf th,table.mtf td{padding:6px 5px;text-align:right;border-bottom:1px solid #243a56}
+table.mtf th:first-child,table.mtf td:first-child,table.mtf td:nth-child(2),table.mtf th:nth-child(2){text-align:left}
+table.mtf tr.primary{background:#1b3050}
 .footer{margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
 ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
 .hist{font:12px Consolas,monospace;line-height:1.6;max-height:150px;overflow:auto}
 .hist .b{color:var(--green)}.hist .s{color:var(--red)}.hist .n{color:var(--amber)}
+.tfsel{font-size:15px;font-weight:700;padding:8px 10px}
 @media(max-width:1100px){.grid{grid-template-columns:1fr}}
 @media(max-width:670px){.footer{grid-template-columns:1fr}.shell{padding:12px}.signal{font-size:34px}}
 </style>
 </head>
 <body>
-<header><h1>NQ Bookmap Monitor <span style="color:#85b7ff">V6</span></h1><p class="muted">Single source: NQ YouTube Bookmap stream • 15-second rolling assessment • recomputed every sample (default 500 ms)</p></header>
+<header><h1>NQ Bookmap Monitor <span style="color:#85b7ff">V8</span></h1><p class="muted">Single source: NQ YouTube Bookmap stream • trade bubbles + where resting orders are stacking on the heatmap • 1 / 5 / 15 / 60 s assessments filtered by 1-minute and 5-minute trend, recomputed on every capture</p></header>
 <div class="shell">
-<div class="warn"><strong>Visual estimate, not order flow.</strong> The signal is computed from pixels in the video: new green/red bubble appearances and the vertical drift of bubble activity at the chart's leading edge. YouTube streams typically lag the exchange by several seconds or more, and that lag cannot be removed here. Validate against your own data before acting on it.</div>
+<div class="warn"><strong>Visual estimate, not exchange data.</strong> The heatmap brightness and bubble colors are read from video pixels. Resting liquidity can be pulled or spoofed. The YouTube stream also lags the exchange by several seconds or more, and that lag can't be removed. Validate before acting.</div>
 
 <div class="grid">
 <div>
   <section class="panel" aria-label="Bookmap video capture">
     <h2>1. Bookmap — NQ</h2>
-    <p class="muted">Share the YouTube/Bookmap tab or window. Drag a region around the <strong>NQ heatmap and trade bubbles</strong>. Include the live right-hand edge where new bubbles print. Exclude the price ladder, volume bars and any ES chart.</p>
+    <p class="muted">Share the YouTube/Bookmap tab. Drag a region around the <strong>NQ heatmap</strong>, including its live right edge where new bubbles print. Exclude the price ladder, the order-book (COB) histogram, volume bars and ES.</p>
     <div class="row">
       <button id="bookShare">Share Bookmap</button>
       <button id="bookStop" class="secondary" disabled>Stop</button>
       <button id="bookPreset" class="secondary" disabled>NQ preset</button>
-      <label><input type="checkbox" id="pOverlay" checked> Show detections</label>
+      <label><input type="checkbox" id="pOverlay" checked> Bubble detections</label>
+      <label><input type="checkbox" id="pLiqOverlay" checked> Liquidity profile</label>
     </div>
     <div id="bookStatus" class="subheading">Not sharing</div>
     <div class="viewer"><canvas id="bookCanvas" width="840" height="473" aria-label="Bookmap video preview; drag to select NQ area"></canvas></div>
-    <p class="subheading">Blue = NQ region. Dashed line = start of the leading-edge zone used for drift. Green/red dots = pixels detected as new buy/sell bubble appearances on the last sample.</p>
+    <p class="subheading">Blue box = NQ region. Dashed line = start of the leading-edge zone. Yellow line = the detected price reference. Bars along the right edge show the stacked-liquidity profile: blue bars below the price line are bids, orange bars above are asks. Faint lines mark the liquidity range. Green/red dots = new bubble prints.</p>
   </section>
 
   <section class="panel" style="margin-top:14px">
     <h2>2. Monitor controls</h2>
     <div class="row">
+      <label style="font-size:14px">Sample interval
+        <select id="pTf" class="tfsel"><option value="1">1 sec</option><option value="5">5 sec</option><option value="15" selected>15 sec</option><option value="60">60 sec</option></select>
+      </label>
+      <label style="font-size:14px">Trend filter
+        <select id="pFilt" class="tfsel"><option value="off">Off</option><option value="1m">1 min must agree</option><option value="5m">5 min must agree</option><option value="both" selected>1 min + 5 min must agree</option><option value="noOppose">1m/5m must not oppose</option></select>
+      </label>
       <button id="start" class="success" disabled>Start NQ monitoring</button>
       <button id="pause" class="secondary" disabled>Pause</button>
       <button id="resetBtn" class="secondary">Reset history</button>
       <button id="csv" class="secondary">Download CSV</button>
-      <label><input type="checkbox" id="pSound"> Sound on signal change</label>
+      <label><input type="checkbox" id="pSound"> Sound on change</label>
     </div>
+    <p class="muted" style="margin:4px 0">The sample interval is the window the main signal is assessed over. Frames are still captured at the capture rate (default 250 ms), so a 15 s or 60 s signal still updates several times a second. All four intervals are shown in the table at right.</p>
     <div id="overallStatus" class="state">Share the Bookmap stream and select the NQ region.</div>
     <details open>
       <summary>Parameters</summary>
       <div class="params">
-        <label>Sample interval <select id="pEvery"><option value="250">250 ms</option><option value="500" selected>500 ms</option><option value="1000">1 s</option></select></label>
-        <label>Assessment window (s) <input type="number" id="pWindow" value="15" min="3" max="120" step="1"></label>
-        <label>Warm-up (s) <input type="number" id="pWarm" value="3" min="1" max="30" step="0.5"></label>
+        <div class="pgroup">Timing / signal</div>
+        <label>Capture rate <select id="pEvery"><option value="250" selected>250 ms</option><option value="500">500 ms</option><option value="1000">1 s</option></select></label>
+        <label>Warm-up (s) <input type="number" id="pWarm" value="2" min="0.5" max="30" step="0.5"></label>
         <label>Enter threshold <input type="number" id="pEnter" value="0.30" min="0.05" max="1" step="0.05"></label>
         <label>Exit threshold <input type="number" id="pExit" value="0.15" min="0" max="1" step="0.05"></label>
-        <label>Confirm samples <input type="number" id="pConfirm" value="2" min="1" max="10" step="1"></label>
-        <label>Color-bias weight <input type="number" id="pWBias" value="1" min="0" max="5" step="0.1"></label>
-        <label>Drift weight <input type="number" id="pWDrift" value="1" min="0" max="5" step="0.1"></label>
-        <label>Drift full-scale (% ROI h) <input type="number" id="pDriftFull" value="8" min="1" max="50" step="1"></label>
+        <label>Confirm captures <input type="number" id="pConfirm" value="2" min="1" max="20" step="1"></label>
+        <label>Recency boost <input type="number" id="pRecency" value="1" min="0" max="5" step="0.25"></label>
+        <label>Momentum lookback (s) <input type="number" id="pMomentum" value="5" min="1" max="60" step="1"></label>
+
+        <div class="pgroup">1-minute / 5-minute trend filter</div>
+        <label>Filter trend threshold <input type="number" id="pFiltMin" value="0.10" min="0" max="1" step="0.05"></label>
+        <label>Filter hold fraction <input type="number" id="pFiltHold" value="0.5" min="0" max="1" step="0.05"></label>
+        <label>Filter min window fill (%) <input type="number" id="pFiltFill" value="30" min="0" max="100" step="5"></label>
+        <label>While filter warming <select id="pFiltWarm"><option value="pass" selected>Pass signal</option><option value="block">Block signal</option></select></label>
+        <label>Filtered signal confirm (captures) <input type="number" id="pFiltConfirm" value="1" min="1" max="20" step="1"></label>
+
+        <div class="pgroup">Component weights</div>
+        <label>Bubble color bias <input type="number" id="pWBias" value="1" min="0" max="5" step="0.1"></label>
+        <label>Bubble drift <input type="number" id="pWDrift" value="1" min="0" max="5" step="0.1"></label>
+        <label>Liquidity stacking <input type="number" id="pWLiq" value="1.2" min="0" max="5" step="0.1"></label>
+        <label>Stacking change <input type="number" id="pWStack" value="0.8" min="0" max="5" step="0.1"></label>
+
+        <div class="pgroup">Liquidity / stacked orders (heatmap)</div>
+        <label>Read stacked liquidity as <select id="pLiqMode"><option value="support" selected>Support / resistance</option><option value="magnet">Magnet (inverted)</option></select></label>
+        <label>Heat intensity model <select id="pHeatModel"><option value="ramp" selected>Bookmap color ramp</option><option value="lum">Brightness</option></select></label>
+        <label>Price reference <select id="pPriceRef"><option value="bubbles" selected>Latest bubble prints</option><option value="middle">ROI middle</option></select></label>
+        <label>Liquidity strip width (%) <input type="number" id="pLiqStrip" value="12" min="2" max="60" step="1"></label>
+        <label>Liquidity range ± (% ROI h) <input type="number" id="pLiqRange" value="30" min="5" max="50" step="1"></label>
+        <label>Gap at price (% ROI h) <input type="number" id="pLiqGap" value="1.5" min="0" max="10" step="0.5"></label>
+        <label>Distance decay (% ROI h) <input type="number" id="pLiqDecay" value="8" min="1" max="50" step="1"></label>
+        <label>Wall threshold (0–1) <input type="number" id="pWall" value="0.70" min="0.1" max="1" step="0.05"></label>
+        <label>Wall bonus weight <input type="number" id="pWallW" value="0.5" min="0" max="3" step="0.1"></label>
+        <label>Dark floor (0–1) <input type="number" id="pLiqFloor" value="0.12" min="0" max="0.6" step="0.01"></label>
+        <label>Liquidity full-scale <input type="number" id="pLiqFull" value="0.35" min="0.05" max="1" step="0.05"></label>
+        <label>Stacking change full-scale <input type="number" id="pStackFull" value="0.20" min="0.02" max="1" step="0.02"></label>
+
+        <div class="pgroup">Bubbles (trade prints)</div>
+        <label>Drift full-scale @15s (% h) <input type="number" id="pDriftFull" value="8" min="1" max="50" step="1"></label>
         <label>Leading-edge zone (%) <input type="number" id="pEdge" value="30" min="5" max="100" step="5"></label>
         <label>Bias area <select id="pBiasArea"><option value="edge" selected>Leading edge</option><option value="full">Full region</option></select></label>
-        <label>Recency boost <input type="number" id="pRecency" value="1" min="0" max="5" step="0.25"></label>
         <label>Color dominance ratio <input type="number" id="pRatio" value="1.30" min="1" max="3" step="0.05"></label>
         <label>Min saturation <input type="number" id="pSat" value="40" min="0" max="200" step="5"></label>
         <label>Min brightness <input type="number" id="pBright" value="100" min="0" max="255" step="5"></label>
         <label>Pixel change threshold <input type="number" id="pDiff" value="60" min="5" max="300" step="5"></label>
-        <label>Min activity (px / window) <input type="number" id="pMinAct" value="15" min="1" max="2000" step="1"></label>
+        <label>Min activity @15s (px) <input type="number" id="pMinAct" value="15" min="1" max="2000" step="1"></label>
         <label>Min px for drift point <input type="number" id="pMinCent" value="4" min="1" max="200" step="1"></label>
+        <label>Price-ref hold (s) <input type="number" id="pRefHold" value="6" min="1" max="60" step="1"></label>
+
+        <div class="pgroup">Health</div>
         <label>Motion floor <input type="number" id="pMotion" value="1.0" min="0.1" max="20" step="0.1"></label>
         <label>Frozen after (s) <input type="number" id="pFrozen" value="8" min="2" max="60" step="1"></label>
-        <label>Momentum lookback (s) <input type="number" id="pMomentum" value="5" min="1" max="30" step="1"></label>
       </div>
     </details>
-    <div class="help muted" style="margin-top:8px">The Share button opens Chrome/Edge's screen-share picker. Choose the Bookmap tab, not this monitor tab. YouTube theater or full-screen mode gives more pixels per bubble, which makes detection more accurate.</div>
   </section>
 </div>
 
@@ -118,42 +162,64 @@ ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
   <section class="panel">
     <div class="row stretch" style="margin:0"><h2>NQ assessment (<span id="winLbl">15</span>s)</h2><span id="quality" class="tag bad">WAITING</span></div>
     <div id="signal" class="signal">WAIT</div>
+    <div id="rawLine" class="state" style="font-size:13px">—</div>
     <div id="momentum" class="momentum">—</div>
     <p id="reason" class="state">Waiting for the shared Bookmap stream and the selected region.</p>
     <div class="gauge" aria-label="Composite score gauge"><span class="mid"></span><span id="thL" class="th"></span><span id="thR" class="th"></span><span id="needle" class="needle" style="left:50%"></span></div>
     <div class="twin"><span>-100 bearish</span><span id="scoreTxt">score 0</span><span>bullish +100</span></div>
-    <canvas id="spark" width="600" height="110" aria-label="Score history over the last 90 seconds"></canvas>
-    <div class="twin"><span>−90 s</span><span>score history (thresholds dashed)</span><span>now</span></div>
-    <hr class="rule">
-    <h3>Components</h3>
+    <canvas id="spark" width="600" height="110" aria-label="Score history"></canvas>
+    <div class="twin"><span>−90 s</span><span>primary score history (thresholds dashed)</span><span>now</span></div>
+
+    <h3 style="margin-top:12px">Trend filter</h3>
     <div class="kvs">
-      <span>Color bias (new bubbles)</span><strong id="cBias">—</strong>
+      <span>1-minute trend</span><strong id="f60">—</strong>
+      <span>5-minute trend</span><strong id="f300">—</strong>
+      <span>Filter status</span><strong id="fStatus">—</strong>
+    </div>
+    <h3 style="margin-top:12px">All intervals</h3>
+    <table class="mtf"><thead><tr><th>Int.</th><th>Signal</th><th>Score</th><th>Bias</th><th>Drift</th><th>Liq</th><th>Stack</th><th>Conf</th></tr></thead><tbody id="mtfBody"></tbody></table>
+
+    <hr class="rule">
+    <h3>Stacked orders (heatmap liquidity)</h3>
+    <div class="kvs">
+      <span>Bid liquidity below price</span><strong id="lBid">—</strong>
+      <span>Ask liquidity above price</span><strong id="lAsk">—</strong>
+      <span>Book imbalance (now)</span><strong id="lImb">—</strong>
+      <span>Nearest bid wall</span><strong id="lWallB">—</strong>
+      <span>Nearest ask wall</span><strong id="lWallA">—</strong>
+      <span>Price reference</span><strong id="lRef">—</strong>
+    </div>
+    <div class="meter liq"><span id="bidbar" style="width:50%"></span><span id="askbar" style="width:50%"></span></div>
+    <div class="twin"><span>Bids stacked below</span><span>Asks stacked above</span></div>
+
+    <h3>Trade bubbles (primary interval)</h3>
+    <div class="kvs">
+      <span>Color bias (new prints)</span><strong id="cBias">—</strong>
       <span>Vertical drift (edge)</span><strong id="cDrift">—</strong>
-      <span>Drift points / span</span><strong id="cDriftPts">—</strong>
-      <span>Components agree</span><strong id="cAgree">—</strong>
-      <span>Confidence</span><strong id="cConf">—</strong>
+      <span>Components agreeing</span><strong id="cAgree">—</strong>
       <span>Activity in window</span><strong id="cAct">—</strong>
+      <span>Window filled</span><strong id="cFill">—</strong>
       <span>Video changing</span><strong id="cMotion">—</strong>
-      <span>Samples in window</span><strong id="cSamples">0</strong>
       <span>Compute time</span><strong id="cMs">—</strong>
     </div>
-    <div class="meter"><span id="greenbar" style="width:0%"></span><span id="redbar" style="width:0%"></span></div>
-    <div class="twin"><span>Green new-bubble px</span><span>Red new-bubble px</span></div>
+    <div class="meter gr"><span id="greenbar" style="width:0%"></span><span id="redbar" style="width:0%"></span></div>
+    <div class="twin"><span>Green new-print px</span><span>Red new-print px</span></div>
     <hr class="rule">
-    <h3>Signal changes</h3>
+    <h3>Signal changes (filtered)</h3>
     <div id="hist" class="hist muted">None yet.</div>
   </section>
 </div>
 </div>
 
 <div class="footer">
-  <section class="panel"><h2>How the signal works</h2><ol>
-    <li><strong>Color bias</strong> counts pixels that newly turned green or red since the previous sample (new bubble prints), weighted toward recent samples in the window. (G − R) / (G + R) gives a value from −1 to +1.</li>
-    <li><strong>Vertical drift</strong> takes the average height of new bubbles in the leading-edge zone on each sample and fits a regression line across the window. Bubbles printing higher means price is rising, which counts as bullish.</li>
-    <li><strong>Score</strong> is the weighted blend of the two, from −100 to +100. BULLISH or BEARISH turns on when |score| exceeds the enter threshold for the set number of confirm samples, and stays on until |score| falls below the exit threshold. This hysteresis stops flicker.</li>
-    <li><strong>Momentum</strong> compares the current score with the score at the lookback time. It shows whether the move is building or fading before the label changes.</li>
+  <section class="panel"><h2>How the score is built</h2><ol>
+    <li><strong>Liquidity stacking:</strong> on every capture, the rightmost strip of the heatmap (the most recent order-book snapshot) is turned into a per-row liquidity profile. The row median removes bubbles. Rows below the price line count as bids and rows above as asks. Closer levels weigh more, and bright "walls" add a bonus. More bids stacked below than asks above reads as bullish support. Select "Magnet" to invert this reading.</li>
+    <li><strong>Stacking change:</strong> whether the imbalance is moving toward bids or asks within the interval, meaning orders are being added or pulled.</li>
+    <li><strong>Bubble color bias:</strong> newly printed green vs red bubble pixels.</li>
+    <li><strong>Bubble drift:</strong> whether new prints at the live edge are landing higher or lower. This is the price-direction proxy.</li>
+    <li><strong>Score:</strong> the weighted average of the components, from −100 to +100. A label turns on above the enter threshold after the confirm captures, and holds until the score falls below the exit threshold.</li>
   </ol></section>
-  <section class="panel"><h2>Diagnostics</h2><p class="muted">Frames are processed in this browser only. Nothing is uploaded. The CSV holds every sample with all components.</p><div id="log" class="log">Monitor loaded. Waiting for screen sharing.</div></section>
+  <section class="panel"><h2>Diagnostics</h2><p class="muted">Frames are processed only in this browser. The CSV holds every capture with all components for all four intervals.</p><div id="log" class="log">Monitor loaded. Waiting for screen sharing.</div></section>
 </div>
 </div>
 
@@ -162,19 +228,27 @@ ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
 (()=>{'use strict';
 const $=id=>document.getElementById(id),now=()=>Date.now(),stamp=()=>new Date().toLocaleTimeString();
 const num=(id,def)=>{const v=Number($(id).value);return Number.isFinite(v)?v:def};
+const TFS=[1,5,15,60,300],HTF=[60,300],tfName=tf=>tf>=60?(tf/60)+'m':tf+'s';
 const P=()=>({
-  every:num('pEvery',500),win:Math.max(3,num('pWindow',15))*1000,warm:Math.max(1,num('pWarm',3))*1000,
+  tf:Number($('pTf').value)||15,filt:$('pFilt').value,filtMin:Math.max(0,num('pFiltMin',.10)),filtHold:clamp01(num('pFiltHold',.5)),filtFill:clamp01(num('pFiltFill',30)/100),filtWarm:$('pFiltWarm').value,filtConfirm:Math.max(1,Math.round(num('pFiltConfirm',1))),every:num('pEvery',250),warm:Math.max(.5,num('pWarm',2))*1000,
   enter:num('pEnter',.30),exit:Math.min(num('pExit',.15),num('pEnter',.30)),confirm:Math.max(1,Math.round(num('pConfirm',2))),
-  wB:Math.max(0,num('pWBias',1)),wD:Math.max(0,num('pWDrift',1)),driftFull:Math.max(.01,num('pDriftFull',8)/100),
-  edge:Math.min(1,Math.max(.05,num('pEdge',30)/100)),biasArea:$('pBiasArea').value,recency:Math.max(0,num('pRecency',1)),
+  recency:Math.max(0,num('pRecency',1)),momentum:num('pMomentum',5)*1000,
+  wB:Math.max(0,num('pWBias',1)),wD:Math.max(0,num('pWDrift',1)),wL:Math.max(0,num('pWLiq',1.2)),wS:Math.max(0,num('pWStack',.8)),
+  liqMode:$('pLiqMode').value,heatModel:$('pHeatModel').value,priceRef:$('pPriceRef').value,
+  liqStrip:Math.min(.6,Math.max(.02,num('pLiqStrip',12)/100)),liqRange:num('pLiqRange',30)/100,liqGap:num('pLiqGap',1.5)/100,liqDecay:Math.max(.01,num('pLiqDecay',8)/100),
+  wall:num('pWall',.7),wallW:Math.max(0,num('pWallW',.5)),liqFloor:num('pLiqFloor',.12),liqFull:Math.max(.05,num('pLiqFull',.35)),stackFull:Math.max(.02,num('pStackFull',.2)),
+  driftFull:Math.max(.01,num('pDriftFull',8)/100),edge:Math.min(1,Math.max(.05,num('pEdge',30)/100)),biasArea:$('pBiasArea').value,
   ratio:Math.max(1,num('pRatio',1.3)),sat:num('pSat',40),bright:num('pBright',100),diff:num('pDiff',60),
-  minAct:Math.max(1,num('pMinAct',15)),minCent:Math.max(1,num('pMinCent',4)),motion:num('pMotion',1),
-  frozen:num('pFrozen',8)*1000,momentum:num('pMomentum',5)*1000,overlay:$('pOverlay').checked,sound:$('pSound').checked
+  minAct:Math.max(1,num('pMinAct',15)),minCent:Math.max(1,num('pMinCent',4)),refHold:num('pRefHold',6)*1000,
+  motion:num('pMotion',1),frozen:num('pFrozen',8)*1000,
+  overlay:$('pOverlay').checked,liqOverlay:$('pLiqOverlay').checked,sound:$('pSound').checked
 });
 
 const book={stream:null,video:$('bookVideo'),canvas:$('bookCanvas'),ctx:$('bookCanvas').getContext('2d'),roi:null,
-  prevData:null,prevType:null,samples:[],scores:[],lastMotion:0,startedAt:0,task:0,mask:[]};
-const sig={label:'WAIT',pending:null,pendingCount:0,last:null,changes:[]};
+  prevData:null,prevType:null,samples:[],lastMotion:0,startedAt:0,task:0,mask:[],profile:null,ref:null,lastCy:null,lastCyT:0,liq:null};
+const newTfState=()=>({label:'WAIT',pending:null,pendingCount:0,res:null,scores:[],changes:[]});
+let st={};TFS.forEach(tf=>st[tf]=newTfState());
+const newFilt=()=>({label:'WAIT',pending:null,pendingCount:0,blocked:false,why:'',changes:[]});let filt=newFilt(),htf={60:{dir:0,ready:false},300:{dir:0,ready:false}};
 let monitoring=false,raf=0,drag=null,lastPaint=0,logRows=[],audio=null;
 
 const log=msg=>{$('log').textContent=`[${stamp()}] ${msg}\n`+$('log').textContent.slice(0,9000)};
@@ -182,22 +256,28 @@ const roiRect=(a,b)=>({x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.
 const clamp01=v=>Math.max(0,Math.min(1,v)),clamp1=v=>Math.max(-1,Math.min(1,v));
 const coords=(e,c)=>{const r=c.getBoundingClientRect();return{x:clamp01((e.clientX-r.left)/r.width),y:clamp01((e.clientY-r.top)/r.height)}};
 const live=v=>v.readyState>=2&&v.videoWidth>0&&v.videoHeight>0;
+const fmtS=v=>v==null?'—':(v>=0?'+':'')+(v*100).toFixed(0);
 
-function resetBook(){book.prevData=null;book.prevType=null;book.samples=[];book.scores=[];book.lastMotion=0;book.startedAt=now();book.mask=[];
-  sig.label='WAIT';sig.pending=null;sig.pendingCount=0;sig.last=null}
+function resetBook(keepChanges){book.prevData=null;book.prevType=null;book.samples=[];book.lastMotion=0;book.startedAt=now();book.mask=[];book.profile=null;book.ref=null;book.lastCy=null;book.lastCyT=0;book.liq=null;
+  TFS.forEach(tf=>{const ch=keepChanges?st[tf].changes:[];st[tf]=newTfState();st[tf].changes=ch});
+  const fc=keepChanges?filt.changes:[];filt=newFilt();filt.changes=fc;HTF.forEach(tf=>htf[tf]={dir:0,ready:false})}
 
-/* ---------- Preview + ROI drawing ---------- */
-const HW=320,HH=220; // analysis resolution
+/* ---------- Preview ---------- */
+const HW=320,HH=220;
 function drawFrame(){const {canvas,ctx,video,stream,roi}=book,p=P();
   if(!stream||!live(video)){ctx.fillStyle='#07111f';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#9ebbd9';ctx.font='18px Arial';ctx.fillText('Share the Bookmap tab or window to see the preview',24,55);return}
   const tw=840,th=Math.round(tw*video.videoHeight/video.videoWidth);if(canvas.width!==tw||canvas.height!==th){canvas.width=tw;canvas.height=th}
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
-  if(roi){const X=roi.x*canvas.width,Y=roi.y*canvas.height,W=roi.w*canvas.width,H=roi.h*canvas.height;
+  if(roi){const X=roi.x*canvas.width,Y=roi.y*canvas.height,W=roi.w*canvas.width,H=roi.h*canvas.height,sx=W/HW,sy=H/HH;
     ctx.lineWidth=3;ctx.strokeStyle='#5aaeff';ctx.strokeRect(X,Y,W,H);
     const ex=X+W*(1-p.edge);ctx.setLineDash([6,5]);ctx.lineWidth=2;ctx.strokeStyle='#9fd0ff';ctx.beginPath();ctx.moveTo(ex,Y);ctx.lineTo(ex,Y+H);ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle='#5aaeff';ctx.font='bold 16px Arial';ctx.fillText('NQ',X+5,Math.max(18,Y+19));
-    if(p.overlay&&book.mask.length){const sx=W/HW,sy=H/HH;for(const m of book.mask){ctx.fillStyle=m[2]>0?'#3dff9e':'#ff3d6e';ctx.fillRect(X+m[0]*sx-1.5,Y+m[1]*sy-1.5,3,3)}}
-    const last=book.samples.at(-1);if(last&&last.cy!=null){const cy=Y+last.cy*H;ctx.strokeStyle='#ffffffcc';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ex,cy);ctx.lineTo(X+W,cy);ctx.stroke()}
+    if(p.overlay&&book.mask.length){for(const m of book.mask){ctx.fillStyle=m[2]>0?'#3dff9e':'#ff3d6e';ctx.fillRect(X+m[0]*sx-1.5,Y+m[1]*sy-1.5,3,3)}}
+    if(book.ref!=null){const ry=Y+book.ref*H;
+      if(p.liqOverlay&&book.profile){const prof=book.profile,maxLen=W*.22;
+        for(let y=0;y<HH;y+=2){const v=prof[y];if(v<=0)continue;ctx.fillStyle=(y/HH)<book.ref?'rgba(255,150,70,.75)':'rgba(80,165,255,.75)';ctx.fillRect(X+W-v*maxLen,Y+y*sy,v*maxLen,Math.max(1,2*sy-.5))}
+        ctx.strokeStyle='#ffffff55';ctx.lineWidth=1;for(const d of [-p.liqRange,p.liqRange]){const yy=ry+d*H;if(yy>Y&&yy<Y+H){ctx.beginPath();ctx.moveTo(X+W-maxLen,yy);ctx.lineTo(X+W,yy);ctx.stroke()}}}
+      ctx.strokeStyle='#ffe066';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X,ry);ctx.lineTo(X+W,ry);ctx.stroke()}
   }
   if(drag){const r=roiRect(drag.start,drag.end);ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.strokeRect(r.x*canvas.width,r.y*canvas.height,r.w*canvas.width,r.h*canvas.height)}
 }
@@ -207,14 +287,13 @@ function frameLoop(t){if(t-lastPaint>150){lastPaint=t;drawFrame()}raf=requestAni
   c.addEventListener('pointermove',e=>{if(drag)drag.end=coords(e,c)});
   c.addEventListener('pointerup',e=>{if(!drag)return;const r=roiRect(drag.start,coords(e,c));drag=null;
     if(r.w<.05||r.h<.07){log('Selection too small. Draw around the NQ heatmap again.');return}
-    book.roi=r;resetBook();log(`NQ region set x=${r.x.toFixed(3)} y=${r.y.toFixed(3)} w=${r.w.toFixed(3)} h=${r.h.toFixed(3)}; history reset`);render()});
+    book.roi=r;resetBook(true);log(`NQ region set x=${r.x.toFixed(3)} y=${r.y.toFixed(3)} w=${r.w.toFixed(3)} h=${r.h.toFixed(3)}; history reset`);render()});
   c.addEventListener('pointercancel',()=>{drag=null})})();
 frameLoop(0);
-
-function bookPreset(){book.roi={x:.53,y:.20,w:.23,h:.53};resetBook();log('NQ starter area applied. Adjust it so it covers only the NQ heatmap and its live right edge.');render()}
+function bookPreset(){book.roi={x:.53,y:.20,w:.23,h:.53};resetBook(true);log('NQ starter area applied. Adjust it so it covers only the NQ heatmap and its live right edge.');render()}
 $('bookPreset').onclick=bookPreset;
 
-/* ---------- Screen share ---------- */
+/* ---------- Share ---------- */
 async function share(){try{
   if(!navigator.mediaDevices?.getDisplayMedia)throw Error('Use Chrome/Edge on an HTTPS page or localhost');
   const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:15},audio:false});
@@ -225,137 +304,215 @@ async function share(){try{
   if(!book.roi)bookPreset();$('bookShare').textContent='Replace Bookmap share';render();
 }catch(e){log('Bookmap capture canceled/failed: '+e.message);$('bookStatus').textContent='Capture error: '+e.message}}
 $('bookShare').onclick=share;
-function stopShare(){if(book.stream)for(const t of book.stream.getTracks())t.stop();book.stream=null;book.video.srcObject=null;resetBook();
+function stopShare(){if(book.stream)for(const t of book.stream.getTracks())t.stop();book.stream=null;book.video.srcObject=null;resetBook(true);
   $('bookShare').textContent='Share Bookmap';log('Bookmap share stopped');stopMonitor()}
 $('bookStop').onclick=stopShare;
 
 /* ---------- Pixel analysis ---------- */
 const heat=document.createElement('canvas');heat.width=HW;heat.height=HH;const hc=heat.getContext('2d',{willReadFrequently:true});
 function colorType(r,g,b,p){const mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<p.sat||mx<p.bright)return 0;
-  if(g>r*p.ratio&&g>b*p.ratio*.9&&g>=p.bright)return 1;   // green = buy-side bubble color
-  if(r>g*p.ratio&&r>b*p.ratio*.9&&r>=p.bright)return -1;   // red = sell-side bubble color
+  if(g>r*p.ratio&&g>b*p.ratio*.9&&g>=p.bright)return 1;
+  if(r>g*p.ratio&&r>b*p.ratio*.9&&r>=p.bright)return -1;
   return 0}
+// Liquidity intensity 0..1 from a heatmap pixel. Bookmap's ramp runs dark → blue → cyan → green → yellow → orange → red → white as liquidity grows.
+function heatIntensity(r,g,b,p){const mx=Math.max(r,g,b),mn=Math.min(r,g,b),v=mx/255;if(v<p.liqFloor)return 0;
+  if(p.heatModel==='lum')return clamp01(((.30*r+.59*g+.11*b)/255-p.liqFloor)/(1-p.liqFloor));
+  const s=mx?(mx-mn)/mx:0;if(s<.2)return v>.75?1:v*.5; // white/grey = very heavy if bright
+  let h;const d=mx-mn;if(mx===r)h=60*(((g-b)/d)%6);else if(mx===g)h=60*((b-r)/d+2);else h=60*((r-g)/d+4);if(h<0)h+=360;
+  let f=h>=280?.9:h>=200?.2:h>=150?.35:h>=90?.5:h>=45?.7:h>=20?.82:.92;
+  return clamp01(f*(.45+.55*v))}
 function capture(){const v=book.video,r=book.roi;if(!book.stream||!live(v)||!r)return null;
   const x=Math.max(0,Math.floor(r.x*v.videoWidth)),y=Math.max(0,Math.floor(r.y*v.videoHeight)),
     w=Math.min(v.videoWidth-x,Math.max(1,Math.floor(r.w*v.videoWidth))),h=Math.min(v.videoHeight-y,Math.max(1,Math.floor(r.h*v.videoHeight)));
   if(w<8||h<8)return null;hc.drawImage(v,x,y,w,h,0,0,HW,HH);return hc.getImageData(0,0,HW,HH).data}
 
+function liquidityProfile(data,p){const x0=Math.floor(HW*(1-p.liqStrip)),cols=[],prof=new Float32Array(HH);
+  for(let y=0;y<HH;y++){cols.length=0;for(let x=x0;x<HW;x++){const q=(y*HW+x)*4;cols.push(heatIntensity(data[q],data[q+1],data[q+2],p))}
+    cols.sort((a,b)=>a-b);prof[y]=cols.length?cols[cols.length>>1]:0} // row median: ignores bubbles crossing the strip
+  return prof}
+
+function liquidityRead(prof,ref,p){const py=Math.round(ref*HH),gap=Math.max(1,Math.round(p.liqGap*HH)),range=Math.round(p.liqRange*HH),decay=p.liqDecay*HH;
+  let bid=0,bidW=0,ask=0,askW=0,wallA=null,wallB=null,wallAV=0,wallBV=0;
+  for(let d=gap;d<=range;d++){const w=1/(1+d/decay),ya=py-d,yb=py+d;
+    if(ya>=0){const v=prof[ya];ask+=v*w;askW+=w;if(wallA==null&&v>=p.wall){wallA=d/HH;wallAV=v}}
+    if(yb<HH){const v=prof[yb];bid+=v*w;bidW+=w;if(wallB==null&&v>=p.wall){wallB=d/HH;wallBV=v}}}
+  if(askW<1||bidW<1)return{avail:false,reason:askW<1?'price at top edge':'price at bottom edge'};
+  const bidAvg=bid/bidW,askAvg=ask/askW;let L=(bidAvg-askAvg)/(bidAvg+askAvg+1e-6);
+  // Wall bonus: the closer of the two walls pushes the reading (bid wall close below = support, ask wall close above = resistance)
+  let wallTerm=0;const prox=d=>d==null?0:1/(1+d/p.liqDecay);wallTerm=prox(wallB)*wallBV-prox(wallA)*wallAV;
+  L=clamp1(L+p.wallW*wallTerm*.5);
+  return{avail:true,L,bidAvg,askAvg,wallA,wallB}}
+
 function sample(){const t0=performance.now(),p=P(),data=capture();if(!data)return;const t=now();
   const types=new Int8Array(HW*HH),prev=book.prevData,pt=book.prevType,edgeX0=Math.floor(HW*(1-p.edge));
-  let g=0,r=0,motion=0,n=0,sumY=0,cnt=0,gy=0,gc=0,ry=0,rc=0;const mask=[];
+  let g=0,r=0,motion=0,n=0,sumY=0,cnt=0;const mask=[];
   for(let y=3;y<HH-3;y+=2)for(let x=3;x<HW-3;x+=2){const i=y*HW+x,q=i*4,ty=colorType(data[q],data[q+1],data[q+2],p);types[i]=ty;
     if(!prev)continue;const d=Math.abs(data[q]-prev[q])+Math.abs(data[q+1]-prev[q+1])+Math.abs(data[q+2]-prev[q+2]);motion+=d;n++;
-    if(ty===0||d<p.diff||pt[i]===ty)continue; // only pixels that NEWLY became green/red
-    const inEdge=x>=edgeX0;
-    if(p.biasArea==='full'||inEdge){if(ty>0)g++;else r++}
-    if(inEdge){sumY+=y;cnt++;if(ty>0){gy+=y;gc++}else{ry+=y;rc++}}
+    if(ty===0||d<p.diff||pt[i]===ty)continue;
+    const inEdge=x>=edgeX0;if(p.biasArea==='full'||inEdge){if(ty>0)g++;else r++}
+    if(inEdge){sumY+=y;cnt++}
     if(mask.length<5000&&(p.biasArea==='full'||inEdge))mask.push([x,y,ty])}
   book.prevData=data;book.prevType=types;book.mask=mask;
+  // Liquidity profile every capture
+  const prof=liquidityProfile(data,p);book.profile=prof;
+  const cy=cnt>=p.minCent?(sumY/cnt)/HH:null;if(cy!=null){book.lastCy=cy;book.lastCyT=t}
+  let ref=.5,refSrc='ROI middle';
+  if(p.priceRef==='bubbles'){if(book.lastCy!=null&&t-book.lastCyT<=p.refHold){ref=book.lastCy;refSrc=cy!=null?'bubbles (live)':`bubbles (${((t-book.lastCyT)/1000).toFixed(1)}s old)`}else refSrc='ROI middle (no recent prints)'}
+  book.ref=ref;book.refSrc=refSrc;
+  const liq=liquidityRead(prof,ref,p);book.liq=liq;
   if(!prev){render();return}
   const m=motion/Math.max(1,n);if(m>p.motion)book.lastMotion=t;
-  const cy=cnt>=p.minCent?(sumY/cnt)/HH:null;
-  book.samples.push({t,g,r,motion:m,cy,cnt,gcy:gc?gy/gc/HH:null,rcy:rc?ry/rc/HH:null});
-  const keep=Math.max(p.win,90000)+5000;book.samples=book.samples.filter(s=>t-s.t<=keep);
-  const res=assess(p,t);res.ms=performance.now()-t0;book.lastRes=res;
-  book.scores.push({t,s:res.score});book.scores=book.scores.filter(s=>t-s.t<=95000);
-  logRows.push([new Date(t).toISOString(),g,r,m.toFixed(2),cy==null?'':cy.toFixed(4),cnt,res.bias.toFixed(3),res.driftAvail?res.drift.toFixed(3):'',res.score.toFixed(3),res.conf.toFixed(2),sig.label,res.reasonCode]);
-  if(logRows.length>40000)logRows.shift();
-  render()}
+  book.samples.push({t,g,r,motion:m,cy,cnt,L:liq.avail?liq.L:null});
+  book.samples=book.samples.filter(s=>t-s.t<=305000);
+  const row=[new Date(t).toISOString(),g,r,m.toFixed(2),cy==null?'':cy.toFixed(4),ref.toFixed(4),liq.avail?liq.L.toFixed(3):'',liq.avail?liq.bidAvg.toFixed(3):'',liq.avail?liq.askAvg.toFixed(3):'',liq.wallB==null?'':liq.wallB.toFixed(3),liq.wallA==null?'':liq.wallA.toFixed(3)];
+  for(const tf of TFS){const s=st[tf],res=assess(p,t,tf,s,tf===p.tf);s.res=res;s.scores.push({t,s:res.score});s.scores=s.scores.filter(x=>t-x.t<=95000);
+    row.push(res.score.toFixed(3),res.bias.toFixed(3),res.driftAvail?res.drift.toFixed(3):'',res.liqAvail?res.liq.toFixed(3):'',res.stackAvail?res.stack.toFixed(3):'',res.conf.toFixed(2),s.label)}
+  applyFilter(p,t);row.push(htf[60].dir,htf[300].dir,filt.label,filt.blocked?filt.why:'');
+  logRows.push(row);if(logRows.length>40000)logRows.shift();
+  book.ms=performance.now()-t0;render()}
 
-/* ---------- Assessment ---------- */
-function assess(p,t){const arr=book.samples.filter(s=>t-s.t<=p.win),out={bias:0,drift:0,driftAvail:false,driftPts:0,driftSpan:0,G:0,R:0,score:0,conf:0,agree:null,reasonCode:'',n:arr.length};
-  let G=0,R=0;for(const s of arr){const w=1+p.recency*(1-(t-s.t)/p.win);G+=s.g*w;R+=s.r*w}out.G=G;out.R=R;
-  const act=G+R;out.bias=act>0?(G-R)/act:0;
-  // drift: least squares slope of centroid (fraction of ROI height) vs seconds
-  const pts=arr.filter(s=>s.cy!=null);out.driftPts=pts.length;
-  if(pts.length>=3){const t0=pts[0].t;out.driftSpan=(pts.at(-1).t-t0)/1000;
-    if(out.driftSpan>=1.5){let sx=0,sy=0,sxx=0,sxy=0,k=pts.length;for(const s of pts){const x=(s.t-t0)/1000;sx+=x;sy+=s.cy;sxx+=x*x;sxy+=x*s.cy}
-      const den=k*sxx-sx*sx;if(den>1e-9){const slope=(k*sxy-sx*sy)/den,moved=slope*(p.win/1000);out.drift=clamp1(-moved/p.driftFull);out.driftAvail=true;out.slope=slope}}}
-  const lowAct=act<p.minAct;const bEff=lowAct?out.bias*(act/p.minAct):out.bias; // shrink bias when sparse
-  const wD=out.driftAvail?p.wD:0,wSum=p.wB+wD;out.score=wSum>0?clamp1((p.wB*bEff+wD*out.drift)/wSum):0;
-  if(out.driftAvail&&Math.abs(out.bias)>.05&&Math.abs(out.drift)>.05)out.agree=Math.sign(out.bias)===Math.sign(out.drift);
-  const actF=Math.min(1,act/(p.minAct*3)),agrF=out.agree===true?1:out.agree===false?.5:.75;
-  out.conf=Math.min(1,Math.abs(out.score)/Math.max(.05,p.enter))*actF*agrF;
+/* ---------- Assessment per interval ---------- */
+function assess(p,t,tf,s,isPrimary){const win=tf*1000,arr=book.samples.filter(x=>t-x.t<=win),
+  out={tf,bias:0,drift:0,liq:0,stack:0,driftAvail:false,liqAvail:false,stackAvail:false,G:0,R:0,score:0,conf:0,agreeFrac:null,n:arr.length,fill:0,reason:'',reasonCode:''};
+  const span=arr.length?(arr.at(-1).t-arr[0].t):0;out.fill=Math.min(1,span/win);
+  // recency weights
+  const wOf=x=>1+p.recency*(1-(t-x.t)/win);
+  // bubbles: color bias
+  let G=0,R=0;for(const x of arr){const w=wOf(x);G+=x.g*w;R+=x.r*w}out.G=G;out.R=R;
+  const act=G+R,minAct=Math.max(2,p.minAct*tf/15),lowAct=act<minAct;out.minAct=minAct;out.bias=act>0?(G-R)/act:0;
+  const bEff=lowAct?out.bias*(act/minAct):out.bias;
+  // bubbles: drift
+  const pts=arr.filter(x=>x.cy!=null);
+  if(pts.length>=3){const t0=pts[0].t,sp=(pts.at(-1).t-t0)/1000;if(sp>=Math.max(.4,.5*tf)){let sx=0,sy=0,sxx=0,sxy=0,k=pts.length;
+    for(const x of pts){const xx=(x.t-t0)/1000;sx+=xx;sy+=x.cy;sxx+=xx*xx;sxy+=xx*x.cy}const den=k*sxx-sx*sx;
+    if(den>1e-9){const slope=(k*sxy-sx*sy)/den,moved=slope*tf,full=p.driftFull*Math.sqrt(tf/15);out.drift=clamp1(-moved/full);out.driftAvail=true}}}
+  // liquidity stacking: recency-weighted mean imbalance
+  const lp=arr.filter(x=>x.L!=null),sign=p.liqMode==='magnet'?-1:1;
+  if(lp.length){let sL=0,sW=0;for(const x of lp){const w=wOf(x);sL+=x.L*w;sW+=w}out.liqRaw=sL/sW;out.liq=clamp1(sign*out.liqRaw/p.liqFull);out.liqAvail=true}
+  // stacking change: imbalance now vs start of window (avg of first/last 20% to reduce noise)
+  if(lp.length>=2&&(lp.at(-1).t-lp[0].t)>=Math.max(.4,.5*tf)*1000){const k=Math.max(1,Math.round(lp.length*.2)),a=lp.slice(0,k),b=lp.slice(-k),
+    avg=z=>z.reduce((s,x)=>s+x.L,0)/z.length;out.stackRaw=avg(b)-avg(a);out.stack=clamp1(sign*out.stackRaw/p.stackFull);out.stackAvail=true}
+  // composite
+  const comps=[[p.wB,bEff,true],[p.wD,out.drift,out.driftAvail],[p.wL,out.liq,out.liqAvail],[p.wS,out.stack,out.stackAvail]];
+  let num_=0,den_=0,pos=0,neg=0;for(const [w,v,ok] of comps){if(!ok||w<=0)continue;num_+=w*v;den_+=w;if(v>.05)pos+=w;else if(v<-.05)neg+=w}
+  out.score=den_>0?clamp1(num_/den_):0;out.agreeFrac=(pos+neg)>0?Math.max(pos,neg)/(pos+neg):null;
+  const actF=out.liqAvail?Math.max(.5,Math.min(1,act/(minAct*3))):Math.min(1,act/(minAct*3));
+  out.conf=Math.min(1,Math.abs(out.score)/Math.max(.05,p.enter))*actF*(out.agreeFrac==null?.6:.4+.6*out.agreeFrac);
   // gating
-  const span=book.samples.length?t-book.samples[0].t:0,frozen=!book.lastMotion||t-book.lastMotion>p.frozen;
-  let label=sig.label,reason='';
-  if(!monitoring){label='WAIT';reason='Click Start NQ monitoring.';out.reasonCode='paused'}
-  else if(span<p.warm){label='WAIT';reason=`Warming up (${(span/1000).toFixed(1)} / ${(p.warm/1000).toFixed(1)} s).`;out.reasonCode='warmup'}
-  else if(frozen){label='WAIT';reason='Bookmap video looks frozen, or there is no measurable movement in the NQ region.';out.reasonCode='frozen'}
-  else{
-    const s=out.score,abs=Math.abs(s),dir=s>0?'BULLISH':'BEARISH';
-    let target;
-    if(abs>=p.enter)target=dir;
-    else if((sig.label==='BULLISH'&&s>p.exit)||(sig.label==='BEARISH'&&s<-p.exit))target=sig.label; // hysteresis hold
-    else target='NEUTRAL';
-    if(target!==sig.label&&target!=='NEUTRAL'){
-      if(sig.pending===target)sig.pendingCount++;else{sig.pending=target;sig.pendingCount=1}
-      label=sig.pendingCount>=p.confirm?target:(sig.label==='WAIT'?'NEUTRAL':sig.label);
-    }else{sig.pending=null;sig.pendingCount=0;label=target}
-    const parts=[`bias ${(out.bias*100).toFixed(0)}`,out.driftAvail?`drift ${(out.drift*100).toFixed(0)}`:'drift n/a'];
-    if(label==='BULLISH')reason=`Green prints dominate and/or new bubbles are printing higher (${parts.join(', ')}).`;
-    else if(label==='BEARISH')reason=`Red prints dominate and/or new bubbles are printing lower (${parts.join(', ')}).`;
-    else reason=lowAct?`Low activity in the window (${act.toFixed(0)} px < ${p.minAct}), so the signal is held toward neutral.`:`Mixed or weak: |score| ${(abs*100).toFixed(0)} is below the enter threshold ${(p.enter*100).toFixed(0)} (${parts.join(', ')}).`;
-    out.reasonCode=lowAct?'lowact':label.toLowerCase();
-    if(sig.pending&&label!==sig.pending)reason+=` Confirming ${sig.pending} ${sig.pendingCount}/${p.confirm}…`;
-  }
-  if(label!==sig.label){const prevL=sig.label;sig.label=label;if(!(prevL==='WAIT'&&label==='NEUTRAL')||true){
-    sig.changes.unshift({t,label,score:out.score});sig.changes=sig.changes.slice(0,40);
-    log(`Signal ${prevL} → ${label} (score ${(out.score*100).toFixed(0)}, bias ${(out.bias*100).toFixed(0)}, drift ${out.driftAvail?(out.drift*100).toFixed(0):'n/a'}, act ${act.toFixed(0)})`);
+  const total=book.samples.length?t-book.samples[0].t:0,frozen=!book.lastMotion||t-book.lastMotion>p.frozen;
+  let label;
+  if(!monitoring){label='WAIT';out.reason='Click Start NQ monitoring.';out.reasonCode='paused'}
+  else if(total<Math.min(p.warm,win)){label='WAIT';out.reason=`Warming up (${(total/1000).toFixed(1)} s).`;out.reasonCode='warmup'}
+  else if(frozen){label='WAIT';out.reason='Bookmap video looks frozen, or there is no measurable movement in the NQ region.';out.reasonCode='frozen'}
+  else{const sc=out.score,abs=Math.abs(sc),dir=sc>0?'BULLISH':'BEARISH';let target;
+    if(abs>=p.enter)target=dir;else if((s.label==='BULLISH'&&sc>p.exit)||(s.label==='BEARISH'&&sc<-p.exit))target=s.label;else target='NEUTRAL';
+    if(target!==s.label&&target!=='NEUTRAL'){if(s.pending===target)s.pendingCount++;else{s.pending=target;s.pendingCount=1}
+      label=s.pendingCount>=p.confirm?target:(s.label==='WAIT'?'NEUTRAL':s.label)}
+    else{s.pending=null;s.pendingCount=0;label=target}
+    const parts=`bias ${fmtS(out.bias)}, drift ${out.driftAvail?fmtS(out.drift):'n/a'}, liq ${out.liqAvail?fmtS(out.liq):'n/a'}, stack ${out.stackAvail?fmtS(out.stack):'n/a'}`;
+    if(label==='BULLISH')out.reason=`Buy side leading: ${p.liqMode==='magnet'?'liquidity above is drawing price':'bids stacked below'} and/or green prints/higher prints (${parts}).`;
+    else if(label==='BEARISH')out.reason=`Sell side leading: ${p.liqMode==='magnet'?'liquidity below is drawing price':'asks stacked above'} and/or red prints/lower prints (${parts}).`;
+    else out.reason=`Mixed or weak: |score| ${(abs*100).toFixed(0)} is below the enter threshold ${(p.enter*100).toFixed(0)} (${parts}).`+(lowAct?` Low print activity (${act.toFixed(0)} < ${minAct.toFixed(0)} px).`:'');
+    out.reasonCode=label.toLowerCase();
+    if(s.pending&&label!==s.pending)out.reason+=` Confirming ${s.pending} ${s.pendingCount}/${p.confirm}…`;
+    if(out.fill<1)out.reason+=` (window ${Math.round(out.fill*100)}% filled)`}
+  if(label!==s.label){const prevL=s.label;s.label=label;s.changes.unshift({t,label,score:out.score});s.changes=s.changes.slice(0,40);
+    if(isPrimary){log(`[raw ${tfName(tf)}] ${prevL} → ${label} score ${fmtS(out.score)} | bias ${fmtS(out.bias)} drift ${out.driftAvail?fmtS(out.drift):'n/a'} liq ${out.liqAvail?fmtS(out.liq):'n/a'} stack ${out.stackAvail?fmtS(out.stack):'n/a'} act ${act.toFixed(0)}`);
+}}
+  return out}
+
+/* ---------- 1m / 5m trend filter ---------- */
+function updateHtf(p){for(const tf of HTF){const s=st[tf],r=s.res,h=htf[tf];
+  h.ready=!!r&&monitoring&&s.label!=='WAIT'&&r.fill>=p.filtFill;h.score=r?r.score:null;h.fill=r?r.fill:0;
+  if(!r){h.dir=0;continue}const sc=r.score,m=p.filtMin;
+  if(sc>=m)h.dir=1;else if(sc<=-m)h.dir=-1;
+  else if(h.dir===1&&sc>m*p.filtHold)h.dir=1;else if(h.dir===-1&&sc<-m*p.filtHold)h.dir=-1; // hysteresis: hold trend until it fades
+  else h.dir=0}}
+function applyFilter(p,t){updateHtf(p);const raw=monitoring?st[p.tf].label:'WAIT',req=p.filt==='off'?[]:p.filt==='1m'?[60]:p.filt==='5m'?[300]:[60,300];
+  let target=raw,blocked=false,why=[],warming=[];
+  if(raw==='BULLISH'||raw==='BEARISH'){const want=raw==='BULLISH'?1:-1;
+    for(const tf of req){const h=htf[tf],nm=tfName(tf),dn=h.dir>0?'bullish':h.dir<0?'bearish':'flat';
+      if(!h.ready){warming.push(nm);if(p.filtWarm==='block'){blocked=true;why.push(`${nm} warming (${Math.round(h.fill*100)}%)`)}continue}
+      if(p.filt==='noOppose'){if(h.dir===-want){blocked=true;why.push(`${nm} is ${dn} (${fmtS(h.score)})`)}}
+      else if(h.dir!==want){blocked=true;why.push(`${nm} is ${dn} (${fmtS(h.score)})`)}}
+    if(blocked)target='NEUTRAL'}
+  // confirm: a NEW directional filtered label must persist N captures
+  let label=target;
+  if(target!==filt.label&&(target==='BULLISH'||target==='BEARISH')){if(filt.pending===target)filt.pendingCount++;else{filt.pending=target;filt.pendingCount=1}
+    if(filt.pendingCount<p.filtConfirm)label=filt.label==='WAIT'?'NEUTRAL':filt.label}else{filt.pending=null;filt.pendingCount=0}
+  filt.blocked=blocked;filt.why=why.join('; ');filt.warming=warming;filt.raw=raw;
+  if(label!==filt.label){const prevL=filt.label;filt.label=label;const sc=st[p.tf].res?st[p.tf].res.score:0;
+    filt.changes.unshift({t,label,raw,score:sc,why:filt.why});filt.changes=filt.changes.slice(0,40);
+    log(`[FILTERED ${tfName(p.tf)}] ${prevL} → ${label} | raw ${raw} | 1m ${htf[60].dir} (${fmtS(htf[60].score)}) 5m ${htf[300].dir} (${fmtS(htf[300].score)})${blocked?' | blocked: '+filt.why:''}`);
     if(p.sound&&prevL!=='WAIT')beep(label)}}
-  out.reason=reason;return out}
 
-function momentum(p){const sc=book.scores;if(sc.length<3)return null;const last=sc.at(-1),ref=sc.filter(s=>last.t-s.t>=p.momentum).at(-1);if(!ref)return null;return last.s-ref.s}
-
-/* ---------- Sound ---------- */
+function momentum(p){const sc=st[p.tf].scores;if(sc.length<3)return null;const last=sc.at(-1),ref=sc.filter(s=>last.t-s.t>=p.momentum).at(-1);return ref?last.s-ref.s:null}
 function beep(label){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();
   o.frequency.value=label==='BULLISH'?880:label==='BEARISH'?330:550;g.gain.setValueAtTime(.12,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.25);
   o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.26)}catch(e){log('Sound failed: '+e.message)}}
 
 /* ---------- Render ---------- */
 const spark=$('spark'),sctx=spark.getContext('2d');
-function drawSpark(p){const W=spark.width,H=spark.height,t=now();sctx.clearRect(0,0,W,H);
-  const yOf=v=>H/2-v*(H/2-6);sctx.strokeStyle='#2d4560';sctx.lineWidth=1;sctx.beginPath();sctx.moveTo(0,H/2);sctx.lineTo(W,H/2);sctx.stroke();
+function drawSpark(p){const W=spark.width,H=spark.height,t=now();sctx.clearRect(0,0,W,H);const yOf=v=>H/2-v*(H/2-6);
+  sctx.strokeStyle='#2d4560';sctx.lineWidth=1;sctx.beginPath();sctx.moveTo(0,H/2);sctx.lineTo(W,H/2);sctx.stroke();
   sctx.setLineDash([4,4]);sctx.strokeStyle='#ffffff40';for(const v of [p.enter,-p.enter]){sctx.beginPath();sctx.moveTo(0,yOf(v));sctx.lineTo(W,yOf(v));sctx.stroke()}sctx.setLineDash([]);
-  const sc=book.scores.filter(s=>t-s.t<=90000);if(sc.length<2)return;
-  sctx.lineWidth=2;for(let i=1;i<sc.length;i++){const a=sc[i-1],b=sc[i],x1=W*(1-(t-a.t)/90000),x2=W*(1-(t-b.t)/90000);
+  const sc=st[p.tf].scores.filter(s=>t-s.t<=90000);if(sc.length<2)return;sctx.lineWidth=2;
+  for(let i=1;i<sc.length;i++){const a=sc[i-1],b=sc[i],x1=W*(1-(t-a.t)/90000),x2=W*(1-(t-b.t)/90000);
     sctx.strokeStyle=b.s>=p.enter?'#55ddb0':b.s<=-p.enter?'#ff7e95':'#ffda8b';sctx.beginPath();sctx.moveTo(x1,yOf(a.s));sctx.lineTo(x2,yOf(b.s));sctx.stroke()}}
-function render(){const p=P(),t=now(),res=book.lastRes;
-  $('winLbl').textContent=Math.round(p.win/1000);
+const cls=l=>l==='BULLISH'?'bull':l==='BEARISH'?'bear':l==='NEUTRAL'?'neutral':'';
+function render(){const p=P(),t=now(),S=st[p.tf],res=S.res;
+  $('winLbl').textContent=p.tf+(p.filt==='off'?'':' • filtered');
   $('bookStatus').textContent=book.stream?(book.roi?'Sharing • NQ region selected':'Sharing • draw the NQ region'):'Not sharing';
   $('bookStop').disabled=!book.stream;$('bookPreset').disabled=!book.stream;$('start').disabled=monitoring||!book.stream||!book.roi;$('pause').disabled=!monitoring;
-  const label=monitoring?sig.label:'WAIT',el=$('signal');el.textContent=label;el.className='signal '+(label==='BULLISH'?'bull':label==='BEARISH'?'bear':label==='NEUTRAL'?'neutral':'');
+  const label=monitoring?filt.label:'WAIT',el=$('signal');el.textContent=label;el.className='signal '+cls(label);
+  const rawL=monitoring?S.label:'WAIT';
+  $('rawLine').innerHTML=!monitoring?'—':p.filt==='off'?`Raw ${tfName(p.tf)}: <strong class="${cls(rawL)}">${rawL}</strong> • filter off`:
+    filt.blocked?`Raw ${tfName(p.tf)}: <strong class="${cls(rawL)}">${rawL}</strong> → <strong class="neutral">FILTERED</strong> (${filt.why})`:
+    `Raw ${tfName(p.tf)}: <strong class="${cls(rawL)}">${rawL}</strong>${filt.warming&&filt.warming.length?' • filter warming: '+filt.warming.join(', ')+' (passing)':' • filter passed'}`;
+  for(const tf of HTF){const h=htf[tf];$('f'+tf).innerHTML=!monitoring||h.score==null?'—':`<span class="${h.dir>0?'bull':h.dir<0?'bear':'neutral'}">${h.dir>0?'▲ bullish':h.dir<0?'▼ bearish':'flat'}</span> ${fmtS(h.score)} • ${h.ready?'ready':'warming '+Math.round(h.fill*100)+'%'}`}
+  $('fStatus').textContent=!monitoring?'—':p.filt==='off'?'Off':filt.blocked?'Blocking':(rawL==='BULLISH'||rawL==='BEARISH')?'Passing':'Idle (raw neutral)';
   $('quality').textContent=label==='WAIT'?'INSUFFICIENT DATA':'LIVE VISUAL ESTIMATE';$('quality').className='tag '+(label==='WAIT'?'bad':'ok');
   $('thL').style.left=(50-50*p.enter)+'%';$('thR').style.left=(50+50*p.enter)+'%';
-  if(res&&monitoring){$('reason').textContent=res.reason;
-    $('needle').style.left=(50+50*res.score)+'%';$('scoreTxt').textContent='score '+(res.score>=0?'+':'')+(res.score*100).toFixed(0);
-    $('cBias').textContent=(res.bias>=0?'+':'')+(res.bias*100).toFixed(0)+' ('+(res.G+res.R?Math.round(100*res.G/(res.G+res.R)):0)+'% green)';
-    $('cDrift').textContent=res.driftAvail?((res.drift>=0?'+':'')+(res.drift*100).toFixed(0)+(res.drift>0?' ▲ printing higher':res.drift<0?' ▼ printing lower':'')):'n/a (too few edge prints)';
-    $('cDriftPts').textContent=res.driftPts+' pts / '+res.driftSpan.toFixed(1)+' s';
-    $('cAgree').textContent=res.agree===null?'—':res.agree?'Yes':'No (conflict)';
-    $('cConf').textContent=Math.round(res.conf*100)+'%';
-    $('cAct').textContent=Math.round(res.G+res.R)+' px (min '+p.minAct+')';$('cSamples').textContent=res.n;$('cMs').textContent=res.ms.toFixed(1)+' ms';
+  if(res&&monitoring){$('reason').textContent=res.reason;$('needle').style.left=(50+50*res.score)+'%';$('scoreTxt').textContent='score '+fmtS(res.score);
+    $('cBias').textContent=fmtS(res.bias)+' ('+(res.G+res.R?Math.round(100*res.G/(res.G+res.R)):0)+'% green)';
+    $('cDrift').textContent=res.driftAvail?fmtS(res.drift)+(res.drift>0?' ▲ higher':res.drift<0?' ▼ lower':''):'n/a';
+    $('cAgree').textContent=res.agreeFrac==null?'—':Math.round(res.agreeFrac*100)+'% of weight';
+    $('cAct').textContent=Math.round(res.G+res.R)+' px (min '+res.minAct.toFixed(0)+')';$('cFill').textContent=Math.round(res.fill*100)+'% ('+res.n+' captures)';
     const tot=res.G+res.R;$('greenbar').style.width=(tot?100*res.G/tot:0)+'%';$('redbar').style.width=(tot?100*res.R/tot:0)+'%';
-    const mo=momentum(p);$('momentum').textContent=mo==null?'Momentum: —':mo>.10?`Momentum: building bullish ▲ (+${(mo*100).toFixed(0)} in ${p.momentum/1000}s)`:mo<-.10?`Momentum: building bearish ▼ (${(mo*100).toFixed(0)} in ${p.momentum/1000}s)`:`Momentum: steady (${mo>=0?'+':''}${(mo*100).toFixed(0)})`;
+    const mo=momentum(p);$('momentum').textContent=mo==null?'Momentum: —':mo>.10?`Momentum: building bullish ▲ (+${(mo*100).toFixed(0)} in ${p.momentum/1000}s)`:mo<-.10?`Momentum: building bearish ▼ (${(mo*100).toFixed(0)} in ${p.momentum/1000}s)`:`Momentum: steady (${fmtS(mo)})`;
   }else if(!monitoring){$('reason').textContent=book.stream?(book.roi?'Click Start NQ monitoring.':'Drag a region around the NQ heatmap.'):'Share the Bookmap stream to begin.';$('momentum').textContent='—'}
+  $('cMs').textContent=book.ms!=null?book.ms.toFixed(1)+' ms':'—';
+  const L=book.liq;
+  if(L&&L.avail){$('lBid').textContent=(L.bidAvg*100).toFixed(0);$('lAsk').textContent=(L.askAvg*100).toFixed(0);
+    $('lImb').innerHTML=`<span class="${L.L>.05?'bull':L.L<-.05?'bear':'neutral'}">${fmtS(L.L)} ${L.L>.05?'bids heavier':L.L<-.05?'asks heavier':'balanced'}</span>`;
+    $('lWallB').textContent=L.wallB==null?'none in range':(L.wallB*100).toFixed(1)+'% h below';$('lWallA').textContent=L.wallA==null?'none in range':(L.wallA*100).toFixed(1)+'% h above';
+    const tt=L.bidAvg+L.askAvg;$('bidbar').style.width=(tt?100*L.bidAvg/tt:50)+'%';$('askbar').style.width=(tt?100*L.askAvg/tt:50)+'%'}
+  else if(L){$('lImb').textContent='n/a ('+L.reason+')'}
+  $('lRef').textContent=book.ref==null?'—':`${(book.ref*100).toFixed(0)}% from top • ${book.refSrc}`;
   $('cMotion').textContent=book.lastMotion?(t-book.lastMotion>p.frozen?'possibly frozen':'changing'):'not established';
-  if(sig.changes.length){$('hist').classList.remove('muted');$('hist').innerHTML=sig.changes.map(c=>`<div class="${c.label==='BULLISH'?'b':c.label==='BEARISH'?'s':'n'}">${new Date(c.t).toLocaleTimeString()}  ${c.label.padEnd(8)} score ${(c.score>=0?'+':'')+(c.score*100).toFixed(0)}</div>`).join('')}
+  $('mtfBody').innerHTML=TFS.map(tf=>{const s=st[tf],r=s.res,l=monitoring?s.label:'WAIT';
+    return `<tr class="${tf===p.tf?'primary':''}"><td>${tfName(tf)}</td><td class="${cls(l)}"><strong>${l}</strong></td><td>${r?fmtS(r.score):'—'}</td><td>${r?fmtS(r.bias):'—'}</td><td>${r&&r.driftAvail?fmtS(r.drift):'—'}</td><td>${r&&r.liqAvail?fmtS(r.liq):'—'}</td><td>${r&&r.stackAvail?fmtS(r.stack):'—'}</td><td>${r?Math.round(r.conf*100)+'%':'—'}</td></tr>`}).join('');
+  if(filt.changes.length){$('hist').classList.remove('muted');$('hist').innerHTML=filt.changes.map(c=>`<div class="${c.label==='BULLISH'?'b':c.label==='BEARISH'?'s':'n'}">${new Date(c.t).toLocaleTimeString()}  ${c.label.padEnd(8)} raw ${c.raw.padEnd(8)} score ${fmtS(c.score)}${c.why?' — '+c.why:''}</div>`).join('')}
+  else{$('hist').classList.add('muted');$('hist').textContent='None yet.'}
   drawSpark(p);
-  $('overallStatus').textContent=`Bookmap: ${book.stream?'shared':'not shared'} • ${monitoring?'Monitoring':'Paused'} • every ${p.every} ms • ${Math.round(p.win/1000)} s window • YouTube delay not removable`}
+  $('overallStatus').textContent=`Bookmap: ${book.stream?'shared':'not shared'} • ${monitoring?'Monitoring':'Paused'} • capture ${p.every} ms • primary ${tfName(p.tf)} • filter ${p.filt} • liquidity read as ${p.liqMode==='magnet'?'magnet':'support/resistance'} • YouTube delay not removable`}
 
 /* ---------- Control ---------- */
 function stopMonitor(){monitoring=false;if(book.task){clearInterval(book.task);book.task=0}render()}
 function schedule(){clearInterval(book.task);book.task=setInterval(()=>{if(monitoring)sample()},P().every)}
 $('start').onclick=()=>{if(!book.stream||!book.roi){log('Share Bookmap and select the NQ region first');return}
-  resetBook();monitoring=true;schedule();sample();const p=P();
-  log(`Started: every ${p.every}ms, window ${p.win/1000}s, enter ${p.enter}, exit ${p.exit}, confirm ${p.confirm}, edge ${p.edge*100}%, bias area ${p.biasArea}, ratio ${p.ratio}`);render()};
+  resetBook(true);monitoring=true;schedule();sample();const p=P();
+  log(`Started: capture ${p.every}ms, primary ${p.tf}s, weights B${p.wB}/D${p.wD}/L${p.wL}/S${p.wS}, liq ${p.liqMode}/${p.heatModel}, strip ${Math.round(p.liqStrip*100)}%, range ±${Math.round(p.liqRange*100)}%, enter ${p.enter}/exit ${p.exit}, confirm ${p.confirm}`);render()};
 $('pause').onclick=()=>{stopMonitor();log('Monitoring paused')};
-$('resetBtn').onclick=()=>{resetBook();sig.changes=[];$('hist').textContent='None yet.';$('hist').classList.add('muted');log('History reset');render()};
-$('pEvery').onchange=()=>{if(monitoring)schedule();log('Sample interval → '+P().every+' ms')};
-document.querySelectorAll('.params input,.params select').forEach(e=>{if(e.id!=='pEvery')e.addEventListener('change',()=>{log(`Param ${e.id} → ${e.value}`);render()})});
-$('csv').onclick=()=>{const rows=[['timestamp_utc','green_new_px','red_new_px','video_motion','edge_centroid_y','edge_px','color_bias','drift','score','confidence','label','reason'],...logRows],
-  data=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n'),blob=new Blob([data],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='nq-bookmap-v6.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('resetBtn').onclick=()=>{resetBook(false);log('History reset');render()};
+$('pEvery').onchange=()=>{if(monitoring)schedule();log('Capture rate → '+P().every+' ms')};
+$('pTf').onchange=()=>{log('Primary sample interval → '+P().tf+' s');render()};
+$('pFilt').onchange=()=>{log('Trend filter → '+P().filt);render()};
+document.querySelectorAll('.params input,.params select').forEach(e=>{if(e.id!=='pEvery')e.addEventListener('change',()=>{log(`Param ${e.id} → ${e.type==='checkbox'?e.checked:e.value}`);render()})});
+$('csv').onclick=()=>{const head=['timestamp_utc','green_new_px','red_new_px','video_motion','edge_centroid_y','price_ref_y','liq_imbalance_now','bid_liq','ask_liq','bid_wall_dist','ask_wall_dist'];
+  for(const tf of TFS)head.push(`s${tf}_score`,`s${tf}_bias`,`s${tf}_drift`,`s${tf}_liq`,`s${tf}_stack`,`s${tf}_conf`,`s${tf}_label`);head.push("trend_1m_dir","trend_5m_dir","filtered_label","filter_block_reason");
+  const data=[head,...logRows].map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n'),blob=new Blob([data],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='nq-bookmap-v8.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 window.addEventListener('beforeunload',()=>{stopMonitor();if(book.stream)for(const t of book.stream.getTracks())t.stop();cancelAnimationFrame(raf)});
 setInterval(render,1000);render();
 })();
