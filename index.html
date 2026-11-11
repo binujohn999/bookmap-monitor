@@ -1,613 +1,722 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NQ Bookmap Monitor V11 — 15s / 1m / 5m Alignment + Voice</title>
-<style>
-:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:#0b1322;color:#e8f1ff;--card:#14233b;--stroke:#304b6b;--muted:#a4bbd5;--blue:#4285f4;--green:#55ddb0;--red:#ff7e95;--amber:#ffda8b}
-*{box-sizing:border-box}body{margin:0}
-header{padding:18px max(20px,calc((100vw - 1430px)/2));background:#121f34;border-bottom:1px solid var(--stroke)}
-h1{margin:0 0 6px;font-size:clamp(21px,2.5vw,28px)}h2{margin:0 0 10px;font-size:19px}h3{margin:0 0 9px;font-size:15px}
-p{margin:8px 0;line-height:1.5}.muted{color:var(--muted);font-size:13px}
-.shell{max-width:1430px;margin:0 auto;padding:16px 18px 32px}
-.warn{border:1px solid #967142;background:#332a1e;color:#ffe4ae;border-radius:10px;padding:10px 14px;font-size:12.5px;line-height:1.5}
-.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,1fr);gap:15px;margin-top:14px}
-.panel{background:var(--card);border:1px solid var(--stroke);padding:15px;border-radius:12px}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:9px 0}.row.stretch{justify-content:space-between}
-button,input,select{font:inherit}
-button{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:10px 12px;font-weight:650;font-size:13px;cursor:pointer}
-button.secondary{background:#2c4565}button.success{background:#167b62}button:disabled{opacity:.43;cursor:not-allowed}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #8ec2ff;outline-offset:2px}
-select,input{border-radius:7px;background:#253b58;border:1px solid #48627e;color:#fff;padding:7px;font-size:13px}
-input[type=number]{width:78px}input[type=checkbox]{width:auto}
-label{font-size:12.5px;color:#cfe0f4}a{color:#abd0ff}
-.viewer{border:1px solid #45607f;border-radius:9px;overflow:hidden;background:#060d17}
-.viewer canvas{width:100%;height:auto;display:block;cursor:crosshair;touch-action:none}
-.subheading{font-size:12px;color:var(--muted);margin:8px 0;min-height:18px}
-.state{font-size:13px;color:#cfdeef;line-height:1.5}
-.tag{display:inline-block;background:#334963;color:#c5dfff;padding:4px 9px;border-radius:30px;font-size:11px}
-.tag.ok{color:#b4f4dc;background:#1f5a49}.tag.bad{color:#ffe1aa;background:#644127}
-.signal{font-size:44px;font-weight:850;letter-spacing:.8px;color:#c5d4e9;line-height:1.1;margin:6px 0}
-.bull{color:var(--green)!important}.bear{color:var(--red)!important}.neutral{color:var(--amber)!important}
-.momentum{font-size:15px;font-weight:700;color:#c9e1ff;margin:2px 0 6px}
-.kvs{display:grid;grid-template-columns:minmax(140px,1fr) auto;gap:7px 12px;font-size:13px;margin:12px 0}
-.kvs strong{text-align:right;font-variant-numeric:tabular-nums}
-.rule{border:0;border-top:1px solid var(--stroke);margin:14px 0}
-.gauge{position:relative;height:16px;border-radius:9px;background:linear-gradient(90deg,#7a2b3a 0%,#3a3f4f 50%,#1f6b52 100%);margin:10px 0 4px}
-.gauge .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#cfd8e6}
-.gauge .needle{position:absolute;top:-5px;width:6px;height:26px;margin-left:-3px;border-radius:3px;background:#fff;box-shadow:0 0 6px #000;transition:left .2s}
-.gauge .th{position:absolute;top:0;bottom:0;width:1px;background:#ffffff55}
-.twin{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:3px 0 10px}
-.meter{height:11px;border-radius:9px;overflow:hidden;background:#293e58;display:flex}
-.meter.gr span:first-child{background:#4fd3a4}.meter.gr span:last-child{background:#db697c}
-.meter.liq span:first-child{background:#4d9fff}.meter.liq span:last-child{background:#ff9a4d}
-#stChart{width:100%;height:90px;display:block;background:#07111f;border-radius:7px;border:1px solid #2d4560;margin-top:6px}
-#spark{width:100%;height:110px;display:block;background:#07111f;border-radius:7px;border:1px solid #2d4560}
-.log{font:12px Consolas,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;background:#07111f;border-radius:7px;padding:9px;color:#bcd2ee;margin-top:8px}
-.params{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px 14px;margin-top:8px}
-.params label{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.pgroup{grid-column:1/-1;font-size:12px;font-weight:700;color:#8fb6e0;margin-top:6px;border-bottom:1px solid #2a4160;padding-bottom:3px}
-details summary{cursor:pointer;font-weight:650;font-size:14px;margin:4px 0}
-table.mtf{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
-table.mtf th,table.mtf td{padding:6px 5px;text-align:right;border-bottom:1px solid #243a56}
-table.mtf th:first-child,table.mtf td:first-child,table.mtf td:nth-child(2),table.mtf th:nth-child(2){text-align:left}
-table.mtf tr.primary{background:#1b3050}
-.footer{margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-ol{margin:7px 0;padding-left:20px;line-height:1.7;font-size:13.5px}
-.hist{font:12px Consolas,monospace;line-height:1.6;max-height:150px;overflow:auto}
-.hist .b{color:var(--green)}.hist .s{color:var(--red)}.hist .n{color:var(--amber)}
-.tfsel{font-size:15px;font-weight:700;padding:8px 10px}
-@media(max-width:1100px){.grid{grid-template-columns:1fr}}
-@media(max-width:670px){.footer{grid-template-columns:1fr}.shell{padding:12px}.signal{font-size:34px}}
-</style>
-</head>
-<body>
-<header><h1>NQ Bookmap Monitor <span style="color:#85b7ff">V11</span></h1><p class="muted">Single source: NQ YouTube Bookmap stream • trade bubbles + where resting orders are stacking on the heatmap • 15 s / 1 m / 5 m assessments • speaks BUY when all three are bullish, SELL when all three are bearish</p></header>
-<div class="shell">
-<div class="warn"><strong>Visual estimate, not exchange data.</strong> The heatmap brightness and bubble colors are read from video pixels. Resting liquidity can be pulled or spoofed. The YouTube stream also lags the exchange by several seconds or more, and that lag can't be removed. Validate before acting.</div>
+#region Using declarations
+using System;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using NinjaTrader.Cbi;
+using NinjaTrader.Data;
+using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.Indicators;
+#endregion
 
-<div class="grid">
-<div>
-  <section class="panel" aria-label="Bookmap video capture">
-    <h2>1. Bookmap — NQ</h2>
-    <p class="muted">Share the YouTube/Bookmap tab. Drag a region around the <strong>NQ heatmap</strong>, including its live right edge where new bubbles print. Exclude the price ladder, the order-book (COB) histogram, volume bars and ES.</p>
-    <div class="row">
-      <button id="bookShare">Share Bookmap</button>
-      <button id="bookStop" class="secondary" disabled>Stop</button>
-      <button id="bookPreset" class="secondary" disabled>NQ preset</button>
-      <label><input type="checkbox" id="pOverlay" checked> Bubble detections</label>
-      <label><input type="checkbox" id="pLiqOverlay" checked> Liquidity profile</label>
-    </div>
-    <div id="bookStatus" class="subheading">Not sharing</div>
-    <div class="viewer"><canvas id="bookCanvas" width="840" height="473" aria-label="Bookmap video preview; drag to select NQ area"></canvas></div>
-    <p class="subheading">Blue box = NQ region. Dashed line = start of the leading-edge zone. Yellow line = the detected price reference. Bars along the right edge show the stacked-liquidity profile: blue bars below the price line are bids, orange bars above are asks. Faint lines mark the liquidity range. Green/red dots = new bubble prints.</p>
-  </section>
+namespace NinjaTrader.NinjaScript.Strategies
+{
+    public class STARNET_MNQ_V2 : Strategy
+    {
+        // STARNET: three-agent MNQ entries; escalating reversal quantity.
+        // Default cycle: 1 MNQ -> 2 MNQ -> 3 MNQ.
+        // Trigger is TOTAL open PnL +/- $50 (not per contract).
+        // Stops: $100 PER contract. Final leg target: $50 PER contract.
+        // On every reversed leg, close at >= $100 TOTAL floating PnL.
+        // Reversed legs reverse again ONLY at -$50 TOTAL floating PnL.
+        // Read-only Sim101/Playback testing strongly recommended.
 
-  <section class="panel" style="margin-top:14px">
-    <h2>2. Monitor controls</h2>
-    <div class="row">
-      <label style="font-size:14px">Detail interval
-        <select id="pTf" class="tfsel"><option value="15" selected>15 sec</option><option value="60">1 min</option><option value="300">5 min</option></select>
-      </label>
-      <button id="start" class="success" disabled>Start NQ monitoring</button>
-      <button id="pause" class="secondary" disabled>Pause</button>
-      <button id="resetBtn" class="secondary">Reset history</button>
-      <button id="csv" class="secondary">Download CSV</button>
-      <label><input type="checkbox" id="pVoice" checked> Speak Buy / Sell</label>
-      <button id="testVoice" class="secondary">Test voice</button>
-      <button id="simBuy" class="secondary">Simulate BUY</button>
-      <button id="simSell" class="secondary">Simulate SELL</button>
-    </div>
-    <p class="muted" style="margin:4px 0">The main signal is <strong>BUY</strong> only when the 15 s, 1 m and 5 m intervals are all BULLISH, and <strong>SELL</strong> only when all three are BEARISH. Anything else shows WAIT. The detail interval only chooses which score the gauge, chart and component readouts show. Frames are captured every 250 ms, so every interval updates live.</p>
-    <div id="overallStatus" class="state">Share the Bookmap stream and select the NQ region.</div>
-    <details open>
-      <summary>Parameters</summary>
-      <div class="params">
-        <div class="pgroup">Timing / signal</div>
-        <label>Capture rate <select id="pEvery"><option value="250" selected>250 ms</option><option value="500">500 ms</option><option value="1000">1 s</option></select></label>
-        <label>Warm-up (s) <input type="number" id="pWarm" value="2" min="0.5" max="30" step="0.5"></label>
-        <label>Enter threshold <input type="number" id="pEnter" value="0.30" min="0.05" max="1" step="0.05"></label>
-        <label>Exit threshold <input type="number" id="pExit" value="0.15" min="0" max="1" step="0.05"></label>
-        <label>Confirm captures <input type="number" id="pConfirm" value="2" min="1" max="20" step="1"></label>
-        <label>Recency boost <input type="number" id="pRecency" value="1" min="0" max="5" step="0.25"></label>
-        <label>Momentum lookback (s) <input type="number" id="pMomentum" value="5" min="1" max="60" step="1"></label>
+        private const string InitialLong = "STARNET_LONG";
+        private const string InitialShort = "STARNET_SHORT";
+        private const string ReverseLong = "STARNET_REV_LONG";
+        private const string ReverseShort = "STARNET_REV_SHORT";
+        private const string ReverseExit = "STARNET_REVERSE_EXIT";
+        private const string ReverseProfitExit = "STARNET_REVERSE_PROFIT_EXIT";
+        private const string DailyExit = "STARNET_DAILY_EXIT";
+        private const string SessionExit = "STARNET_SESSION_EXIT";
 
-        <div class="pgroup">BUY / SELL alignment</div>
-        <label>Alert trigger <select id="pTrigger"><option value="all3" selected>15s + 1m + 5m all aligned</option><option value="15_1m">15s + 1m aligned</option><option value="15s">15s label only</option></select></label>
-        <label>1m & 5m count as aligned when <select id="pAlignMode"><option value="labels" selected>Label is BULLISH/BEARISH</option><option value="trend">Trend leans that way</option></select></label>
-        <label>Trend lean threshold <input type="number" id="pFiltMin" value="0.10" min="0" max="1" step="0.05"></label>
-        <label>Trend hold fraction <input type="number" id="pFiltHold" value="0.5" min="0" max="1" step="0.05"></label>
-        <label>1m/5m min window fill (%) <input type="number" id="pFiltFill" value="30" min="0" max="100" step="5"></label>
-        <label>Alignment confirm (captures) <input type="number" id="pAlignConfirm" value="2" min="1" max="40" step="1"></label>
-        <label>Same-side re-alert cooldown (s) <input type="number" id="pCooldown" value="30" min="0" max="600" step="5"></label>
+        private enum CyclePhase
+        {
+            Flat,
+            EntryPending,
+            PositionOpen,
+            ReversalExitPending,
+            ReverseReady,
+            SafetyExitPending
+        }
 
-        <div class="pgroup">Supertrend filter on the 15s score</div>
-        <label>Supertrend filter <input type="checkbox" id="pStOn" checked></label>
-        <label>Bar size <select id="pStBar"><option value="1">1 s</option><option value="5" selected>5 s</option><option value="15">15 s</option><option value="30">30 s</option></select></label>
-        <label>ATR period (bars) <input type="number" id="pStAtr" value="10" min="2" max="100" step="1"></label>
-        <label>Multiplier <input type="number" id="pStMult" value="2" min="0.5" max="10" step="0.25"></label>
-        <label>Min ATR (score units) <input type="number" id="pStMinAtr" value="0.03" min="0" max="0.5" step="0.01"></label>
-        <label>Flip on <select id="pStFlip"><option value="close" selected>Bar close</option><option value="live">Live (intrabar)</option></select></label>
-        <label>Min bars before ready <input type="number" id="pStMinBars" value="5" min="1" max="100" step="1"></label>
-        <label>While Supertrend warming <select id="pStWarm"><option value="block" selected>Block alerts</option><option value="pass">Pass alerts</option></select></label>
+        private EMA ema20;
+        private EMA ema50;
+        private ADX adx14;
+        private CyclePhase phase;
+        private MarketPosition nextSide;
+        private string activeEntrySignal;
+        private int expectedEntryQty;
+        private int reversalCount;
+        private int entriesToday;
+        private int lastEntryBar;
+        private int lastSignalLogBar;
+        private DateTime activeDate;
+        private DateTime lastEntryBarTime;
+        private DateTime lastHeartbeat;
+        private double dayStartingRealized;
+        private bool dailyLocked;
+        private bool startupBlocked;
+        private bool exitRequested;
+        private string blockReason;
 
-        <div class="pgroup">Voice</div>
-        <label>Buy phrase <input type="text" id="pBuyText" value="Buy" style="width:110px"></label>
-        <label>Sell phrase <input type="text" id="pSellText" value="Sell" style="width:110px"></label>
-        <label>Repeat while aligned (s, 0=off) <input type="number" id="pRepeat" value="0" min="0" max="600" step="5"></label>
-        <label>Speak when alignment ends <input type="checkbox" id="pSpeakExit"></label>
-        <label>Exit phrase <input type="text" id="pExitText" value="Flat" style="width:110px"></label>
-        <label>Voice rate <input type="number" id="pVoiceRate" value="1.1" min="0.5" max="2" step="0.1"></label>
-        <label>Voice volume <input type="number" id="pVoiceVol" value="1" min="0" max="1" step="0.1"></label>
-        <label>Also beep <input type="checkbox" id="pSound"></label>
+        #region Configurable parameters
+        [NinjaScriptProperty]
+        [Range(1, 10)]
+        [Display(Name="Initial MNQ Contracts", GroupName="01 Orders", Order=1)]
+        public int InitialContracts { get; set; }
 
-        <div class="pgroup">Component weights</div>
-        <label>Bubble color bias <input type="number" id="pWBias" value="1" min="0" max="5" step="0.1"></label>
-        <label>Bubble drift <input type="number" id="pWDrift" value="1" min="0" max="5" step="0.1"></label>
-        <label>Liquidity stacking <input type="number" id="pWLiq" value="1.2" min="0" max="5" step="0.1"></label>
-        <label>Stacking change <input type="number" id="pWStack" value="0.8" min="0" max="5" step="0.1"></label>
+        [NinjaScriptProperty]
+        [Range(1, 10)]
+        [Display(Name="Maximum MNQ Contracts", GroupName="01 Orders", Order=2)]
+        public int MaxContracts { get; set; }
 
-        <div class="pgroup">Liquidity / stacked orders (heatmap)</div>
-        <label>Read stacked liquidity as <select id="pLiqMode"><option value="support" selected>Support / resistance</option><option value="magnet">Magnet (inverted)</option></select></label>
-        <label>Heat intensity model <select id="pHeatModel"><option value="ramp" selected>Bookmap color ramp</option><option value="lum">Brightness</option></select></label>
-        <label>Price reference <select id="pPriceRef"><option value="bubbles" selected>Latest bubble prints</option><option value="middle">ROI middle</option></select></label>
-        <label>Liquidity strip width (%) <input type="number" id="pLiqStrip" value="12" min="2" max="60" step="1"></label>
-        <label>Liquidity range ± (% ROI h) <input type="number" id="pLiqRange" value="30" min="5" max="50" step="1"></label>
-        <label>Gap at price (% ROI h) <input type="number" id="pLiqGap" value="1.5" min="0" max="10" step="0.5"></label>
-        <label>Distance decay (% ROI h) <input type="number" id="pLiqDecay" value="8" min="1" max="50" step="1"></label>
-        <label>Wall threshold (0–1) <input type="number" id="pWall" value="0.70" min="0.1" max="1" step="0.05"></label>
-        <label>Wall bonus weight <input type="number" id="pWallW" value="0.5" min="0" max="3" step="0.1"></label>
-        <label>Dark floor (0–1) <input type="number" id="pLiqFloor" value="0.12" min="0" max="0.6" step="0.01"></label>
-        <label>Liquidity full-scale <input type="number" id="pLiqFull" value="0.35" min="0.05" max="1" step="0.05"></label>
-        <label>Stacking change full-scale <input type="number" id="pStackFull" value="0.20" min="0.02" max="1" step="0.02"></label>
+        [NinjaScriptProperty]
+        [Range(0, 9)]
+        [Display(Name="Maximum Reversals Per Cycle", GroupName="01 Orders", Order=3)]
+        public int MaxReversalsPerCycle { get; set; }
 
-        <div class="pgroup">Bubbles (trade prints)</div>
-        <label>Drift full-scale @15s (% h) <input type="number" id="pDriftFull" value="8" min="1" max="50" step="1"></label>
-        <label>Leading-edge zone (%) <input type="number" id="pEdge" value="30" min="5" max="100" step="5"></label>
-        <label>Bias area <select id="pBiasArea"><option value="edge" selected>Leading edge</option><option value="full">Full region</option></select></label>
-        <label>Color dominance ratio <input type="number" id="pRatio" value="1.30" min="1" max="3" step="0.05"></label>
-        <label>Min saturation <input type="number" id="pSat" value="40" min="0" max="200" step="5"></label>
-        <label>Min brightness <input type="number" id="pBright" value="100" min="0" max="255" step="5"></label>
-        <label>Pixel change threshold <input type="number" id="pDiff" value="60" min="5" max="300" step="5"></label>
-        <label>Min activity @15s (px) <input type="number" id="pMinAct" value="15" min="1" max="2000" step="1"></label>
-        <label>Min px for drift point <input type="number" id="pMinCent" value="4" min="1" max="200" step="1"></label>
-        <label>Price-ref hold (s) <input type="number" id="pRefHold" value="6" min="1" max="60" step="1"></label>
+        [NinjaScriptProperty]
+        [Range(1, 10000)]
+        [Display(Name="Stop Loss Per Contract ($)", GroupName="01 Orders", Order=4)]
+        public double StopLossDollars { get; set; }
 
-        <div class="pgroup">Health</div>
-        <label>Motion floor <input type="number" id="pMotion" value="1.0" min="0.1" max="20" step="0.1"></label>
-        <label>Frozen after (s) <input type="number" id="pFrozen" value="8" min="2" max="60" step="1"></label>
-      </div>
-    </details>
-  </section>
-</div>
+        [NinjaScriptProperty]
+        [Range(1, 10000)]
+        [Display(Name="Initial Profit Target Per Contract ($)", GroupName="01 Orders", Order=5)]
+        public double ProfitTargetDollars { get; set; }
 
-<div>
-  <section class="panel">
-    <div class="row stretch" style="margin:0"><h2>NQ alignment signal</h2><span id="quality" class="tag bad">WAITING</span></div>
-    <div id="signal" class="signal">WAIT</div>
-    <div id="rawLine" class="state" style="font-size:14px">—</div>
-    <div id="momentum" class="momentum">—</div>
-    <p id="reason" class="state">Waiting for the shared Bookmap stream and the selected region.</p>
-    <div class="gauge" aria-label="Composite score gauge"><span class="mid"></span><span id="thL" class="th"></span><span id="thR" class="th"></span><span id="needle" class="needle" style="left:50%"></span></div>
-    <div class="twin"><span>-100 bearish</span><span id="scoreTxt">score 0</span><span>bullish +100</span></div>
-    <canvas id="spark" width="600" height="110" aria-label="Score history"></canvas>
-    <div class="twin"><span>−90 s</span><span><span id="winLbl">15s</span> score history (thresholds dashed)</span><span>now</span></div>
+        [NinjaScriptProperty]
+        [Range(1, 10000)]
+        [Display(Name="Reverse At Total Profit ($)", GroupName="01 Orders", Order=6)]
+        public double ReverseAtProfitDollars { get; set; }
 
-    <h3 style="margin-top:12px">Alignment</h3>
-    <div class="kvs">
-      <span>15 seconds</span><strong id="a15">—</strong>
-      <span>1 minute</span><strong id="a60">—</strong>
-      <span>5 minutes</span><strong id="a300">—</strong>
-      <span>Score Supertrend</span><strong id="aSt">—</strong>
-      <span>Last spoken alert</span><strong id="aLast">—</strong>
-      <span>Voice / timer health</span><strong id="aHealth">—</strong>
-    </div>
-    <canvas id="stChart" width="600" height="90" aria-label="15s score bars with Supertrend line"></canvas>
-    <div class="twin"><span>15s score (white) + Supertrend line</span><span>green = up • red = down</span></div>
-    <h3 style="margin-top:12px">All intervals</h3>
-    <table class="mtf"><thead><tr><th>Int.</th><th>Signal</th><th>Score</th><th>Bias</th><th>Drift</th><th>Liq</th><th>Stack</th><th>Conf</th></tr></thead><tbody id="mtfBody"></tbody></table>
+        [NinjaScriptProperty]
+        [Range(1, 10000)]
+        [Display(Name="Reverse At Total Loss ($)", GroupName="01 Orders", Order=7)]
+        public double ReverseAtLossDollars { get; set; }
 
-    <hr class="rule">
-    <h3>Stacked orders (heatmap liquidity)</h3>
-    <div class="kvs">
-      <span>Bid liquidity below price</span><strong id="lBid">—</strong>
-      <span>Ask liquidity above price</span><strong id="lAsk">—</strong>
-      <span>Book imbalance (now)</span><strong id="lImb">—</strong>
-      <span>Nearest bid wall</span><strong id="lWallB">—</strong>
-      <span>Nearest ask wall</span><strong id="lWallA">—</strong>
-      <span>Price reference</span><strong id="lRef">—</strong>
-    </div>
-    <div class="meter liq"><span id="bidbar" style="width:50%"></span><span id="askbar" style="width:50%"></span></div>
-    <div class="twin"><span>Bids stacked below</span><span>Asks stacked above</span></div>
+        [NinjaScriptProperty]
+        [Range(1, 10000)]
+        [Display(Name="Final Leg Profit Target Per Contract ($)", GroupName="01 Orders", Order=8)]
+        public double ReverseTargetDollars { get; set; }
 
-    <h3>Trade bubbles (detail interval)</h3>
-    <div class="kvs">
-      <span>Color bias (new prints)</span><strong id="cBias">—</strong>
-      <span>Vertical drift (edge)</span><strong id="cDrift">—</strong>
-      <span>Components agreeing</span><strong id="cAgree">—</strong>
-      <span>Activity in window</span><strong id="cAct">—</strong>
-      <span>Window filled</span><strong id="cFill">—</strong>
-      <span>Video changing</span><strong id="cMotion">—</strong>
-      <span>Compute time</span><strong id="cMs">—</strong>
-    </div>
-    <div class="meter gr"><span id="greenbar" style="width:0%"></span><span id="redbar" style="width:0%"></span></div>
-    <div class="twin"><span>Green new-print px</span><span>Red new-print px</span></div>
-    <hr class="rule">
-    <h3>BUY / SELL history</h3>
-    <div id="hist" class="hist muted">None yet.</div>
-  </section>
-</div>
-</div>
+        [NinjaScriptProperty]
+        [Range(1, 100000)]
+        [Display(Name="Reversed Leg Floating Profit Exit ($ TOTAL)", GroupName="01 Orders", Order=9)]
+        public double ReversedLegProfitExitDollars { get; set; }
 
-<div class="footer">
-  <section class="panel"><h2>How the score is built</h2><ol>
-    <li><strong>Liquidity stacking:</strong> on every capture, the rightmost strip of the heatmap (the most recent order-book snapshot) is turned into a per-row liquidity profile. The row median removes bubbles. Rows below the price line count as bids and rows above as asks. Closer levels weigh more, and bright "walls" add a bonus. More bids stacked below than asks above reads as bullish support. Select "Magnet" to invert this reading.</li>
-    <li><strong>Stacking change:</strong> whether the imbalance is moving toward bids or asks within the interval, meaning orders are being added or pulled.</li>
-    <li><strong>Bubble color bias:</strong> newly printed green vs red bubble pixels.</li>
-    <li><strong>Bubble drift:</strong> whether new prints at the live edge are landing higher or lower. This is the price-direction proxy.</li>
-    <li><strong>Supertrend filter:</strong> the 15 s score is grouped into bars (default 5 s), and a standard Supertrend (ATR 10, multiplier 2) runs on those bars. BUY can only speak while that Supertrend is up and SELL only while it is down. It filters on the score, not on price.</li>
-    <li><strong>BUY / SELL:</strong> each interval (15 s, 1 m, 5 m) gets its own BULLISH / BEARISH / NEUTRAL label. When all three turn BULLISH for the confirm captures, the voice says <em>Buy</em>; when all three turn BEARISH, it says <em>Sell</em>. A cooldown stops repeat alerts on the same side when the 15 s label flickers.</li>
-    <li><strong>Score:</strong> the weighted average of the components, from −100 to +100. A label turns on above the enter threshold after the confirm captures, and holds until the score falls below the exit threshold.</li>
-  </ol></section>
-  <section class="panel"><h2>Diagnostics</h2><p class="muted">Frames are processed only in this browser. The CSV holds every capture with all components for all four intervals.</p><div id="log" class="log">Monitor loaded. Waiting for screen sharing.</div></section>
-</div>
-</div>
+        [NinjaScriptProperty]
+        [Range(1, 100000)]
+        [Display(Name="Daily Profit Threshold ($)", GroupName="02 Risk", Order=1)]
+        public double DailyProfitLimit { get; set; }
 
-<video id="bookVideo" autoplay playsinline muted hidden></video>
-<script>
-(()=>{'use strict';
-const $=id=>document.getElementById(id),now=()=>Date.now(),stamp=()=>new Date().toLocaleTimeString();
-const num=(id,def)=>{const v=Number($(id).value);return Number.isFinite(v)?v:def};
-const TFS=[15,60,300],HTF=[60,300],tfName=tf=>tf>=60?(tf/60)+'m':tf+'s';
-const P=()=>({
-  tf:Number($('pTf').value)||15,alignMode:$('pAlignMode').value,stOn:$('pStOn').checked,stBar:Number($('pStBar').value)||5,stAtr:Math.max(2,Math.round(num('pStAtr',10))),stMult:Math.max(.1,num('pStMult',2)),stMinAtr:Math.max(0,num('pStMinAtr',.03)),stFlip:$('pStFlip').value,stMinBars:Math.max(1,Math.round(num('pStMinBars',5))),stWarm:$('pStWarm').value,trigger:$('pTrigger').value,filtMin:Math.max(0,num('pFiltMin',.10)),filtHold:clamp01(num('pFiltHold',.5)),filtFill:clamp01(num('pFiltFill',30)/100),alignConfirm:Math.max(1,Math.round(num('pAlignConfirm',2))),cooldown:num('pCooldown',30)*1000,voice:$('pVoice').checked,buyText:$('pBuyText').value||'Buy',sellText:$('pSellText').value||'Sell',exitText:$('pExitText').value||'Flat',repeat:num('pRepeat',0)*1000,speakExit:$('pSpeakExit').checked,voiceRate:num('pVoiceRate',1.1),voiceVol:clamp01(num('pVoiceVol',1)),every:num('pEvery',250),warm:Math.max(.5,num('pWarm',2))*1000,
-  enter:num('pEnter',.30),exit:Math.min(num('pExit',.15),num('pEnter',.30)),confirm:Math.max(1,Math.round(num('pConfirm',2))),
-  recency:Math.max(0,num('pRecency',1)),momentum:num('pMomentum',5)*1000,
-  wB:Math.max(0,num('pWBias',1)),wD:Math.max(0,num('pWDrift',1)),wL:Math.max(0,num('pWLiq',1.2)),wS:Math.max(0,num('pWStack',.8)),
-  liqMode:$('pLiqMode').value,heatModel:$('pHeatModel').value,priceRef:$('pPriceRef').value,
-  liqStrip:Math.min(.6,Math.max(.02,num('pLiqStrip',12)/100)),liqRange:num('pLiqRange',30)/100,liqGap:num('pLiqGap',1.5)/100,liqDecay:Math.max(.01,num('pLiqDecay',8)/100),
-  wall:num('pWall',.7),wallW:Math.max(0,num('pWallW',.5)),liqFloor:num('pLiqFloor',.12),liqFull:Math.max(.05,num('pLiqFull',.35)),stackFull:Math.max(.02,num('pStackFull',.2)),
-  driftFull:Math.max(.01,num('pDriftFull',8)/100),edge:Math.min(1,Math.max(.05,num('pEdge',30)/100)),biasArea:$('pBiasArea').value,
-  ratio:Math.max(1,num('pRatio',1.3)),sat:num('pSat',40),bright:num('pBright',100),diff:num('pDiff',60),
-  minAct:Math.max(1,num('pMinAct',15)),minCent:Math.max(1,num('pMinCent',4)),refHold:num('pRefHold',6)*1000,
-  motion:num('pMotion',1),frozen:num('pFrozen',8)*1000,
-  overlay:$('pOverlay').checked,liqOverlay:$('pLiqOverlay').checked,sound:$('pSound').checked
-});
+        [NinjaScriptProperty]
+        [Range(1, 100000)]
+        [Display(Name="Daily Loss Limit ($)", GroupName="02 Risk", Order=2)]
+        public double DailyLossLimit { get; set; }
 
-const book={stream:null,video:$('bookVideo'),canvas:$('bookCanvas'),ctx:$('bookCanvas').getContext('2d'),roi:null,
-  prevData:null,prevType:null,samples:[],lastMotion:0,startedAt:0,task:0,mask:[],profile:null,ref:null,lastCy:null,lastCyT:0,liq:null};
-const newTfState=()=>({label:'WAIT',pending:null,pendingCount:0,res:null,scores:[],changes:[]});
-let st={};TFS.forEach(tf=>st[tf]=newTfState());
-const newAlign=()=>({label:'WAIT',pending:null,pendingCount:0,why:'',changes:[],lastSpoken:{BUY:0,SELL:0},lastSpokenText:'',lastSpokenAt:0,lastRepeat:0});const newSt=()=>({bars:[],cur:null,atr:null,n:0,up:null,lo:null,dir:0,line:null,prevC:null,live:null});let stf=newSt();
-let align=newAlign(),htf={15:{dir:0},60:{dir:0,ready:false},300:{dir:0,ready:false}};
-let monitoring=false,raf=0,drag=null,lastPaint=0,logRows=[],audio=null;
+        [NinjaScriptProperty]
+        [Range(1, 100)]
+        [Display(Name="Maximum Entries Per Day", GroupName="02 Risk", Order=3)]
+        public int MaxTradesPerDay { get; set; }
 
-const log=msg=>{$('log').textContent=`[${stamp()}] ${msg}\n`+$('log').textContent.slice(0,9000)};
-const roiRect=(a,b)=>({x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)});
-const clamp01=v=>Math.max(0,Math.min(1,v)),clamp1=v=>Math.max(-1,Math.min(1,v));
-const coords=(e,c)=>{const r=c.getBoundingClientRect();return{x:clamp01((e.clientX-r.left)/r.width),y:clamp01((e.clientY-r.top)/r.height)}};
-const live=v=>v.readyState>=2&&v.videoWidth>0&&v.videoHeight>0;
-const fmtS=v=>v==null?'—':(v>=0?'+':'')+(v*100).toFixed(0);
+        [NinjaScriptProperty]
+        [Range(0, 3600)]
+        [Display(Name="Cooldown Seconds", GroupName="02 Risk", Order=4)]
+        public int CooldownSeconds { get; set; }
 
-function resetBook(keepChanges){book.prevData=null;book.prevType=null;book.samples=[];book.lastMotion=0;book.startedAt=now();book.mask=[];book.profile=null;book.ref=null;book.lastCy=null;book.lastCyT=0;book.liq=null;
-  TFS.forEach(tf=>{const ch=keepChanges?st[tf].changes:[];st[tf]=newTfState();st[tf].changes=ch});
-  const ac=keepChanges?align.changes:[],ls=align.lastSpoken,lt=align.lastSpokenText,la=align.lastSpokenAt;align=newAlign();align.changes=ac;align.lastSpoken=ls;align.lastSpokenText=lt;align.lastSpokenAt=la;HTF.forEach(tf=>htf[tf]={dir:0,ready:false});stf=newSt()}
+        [NinjaScriptProperty]
+        [Display(Name="Start Time HHmmss (Chart Time)", GroupName="03 Session", Order=1)]
+        public int StartTime { get; set; }
 
-/* ---------- Preview ---------- */
-const HW=320,HH=220;
-function drawFrame(){const {canvas,ctx,video,stream,roi}=book,p=P();
-  if(!stream||!live(video)){ctx.fillStyle='#07111f';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#9ebbd9';ctx.font='18px Arial';ctx.fillText('Share the Bookmap tab or window to see the preview',24,55);return}
-  const tw=840,th=Math.round(tw*video.videoHeight/video.videoWidth);if(canvas.width!==tw||canvas.height!==th){canvas.width=tw;canvas.height=th}
-  ctx.drawImage(video,0,0,canvas.width,canvas.height);
-  if(roi){const X=roi.x*canvas.width,Y=roi.y*canvas.height,W=roi.w*canvas.width,H=roi.h*canvas.height,sx=W/HW,sy=H/HH;
-    ctx.lineWidth=3;ctx.strokeStyle='#5aaeff';ctx.strokeRect(X,Y,W,H);
-    const ex=X+W*(1-p.edge);ctx.setLineDash([6,5]);ctx.lineWidth=2;ctx.strokeStyle='#9fd0ff';ctx.beginPath();ctx.moveTo(ex,Y);ctx.lineTo(ex,Y+H);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='#5aaeff';ctx.font='bold 16px Arial';ctx.fillText('NQ',X+5,Math.max(18,Y+19));
-    if(p.overlay&&book.mask.length){for(const m of book.mask){ctx.fillStyle=m[2]>0?'#3dff9e':'#ff3d6e';ctx.fillRect(X+m[0]*sx-1.5,Y+m[1]*sy-1.5,3,3)}}
-    if(book.ref!=null){const ry=Y+book.ref*H;
-      if(p.liqOverlay&&book.profile){const prof=book.profile,maxLen=W*.22;
-        for(let y=0;y<HH;y+=2){const v=prof[y];if(v<=0)continue;ctx.fillStyle=(y/HH)<book.ref?'rgba(255,150,70,.75)':'rgba(80,165,255,.75)';ctx.fillRect(X+W-v*maxLen,Y+y*sy,v*maxLen,Math.max(1,2*sy-.5))}
-        ctx.strokeStyle='#ffffff55';ctx.lineWidth=1;for(const d of [-p.liqRange,p.liqRange]){const yy=ry+d*H;if(yy>Y&&yy<Y+H){ctx.beginPath();ctx.moveTo(X+W-maxLen,yy);ctx.lineTo(X+W,yy);ctx.stroke()}}}
-      ctx.strokeStyle='#ffe066';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X,ry);ctx.lineTo(X+W,ry);ctx.stroke()}
-  }
-  if(drag){const r=roiRect(drag.start,drag.end);ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.strokeRect(r.x*canvas.width,r.y*canvas.height,r.w*canvas.width,r.h*canvas.height)}
+        [NinjaScriptProperty]
+        [Display(Name="End Time HHmmss (Chart Time)", GroupName="03 Session", Order=2)]
+        public int EndTime { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(5, 100)]
+        [Display(Name="Minimum ADX", GroupName="04 Agents", Order=1)]
+        public double MinimumADX { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(2, 20)]
+        [Display(Name="Structure Lookback", GroupName="04 Agents", Order=2)]
+        public int StructureLookback { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name="Require Previous Candle Color", GroupName="04 Agents", Order=3)]
+        public bool RequirePreviousColor { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name="Enable Agent Logging", GroupName="05 Diagnostics", Order=1)]
+        public bool EnableLogging { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name="Process Historical Entries (Backtest Only)", GroupName="05 Diagnostics", Order=2)]
+        public bool ProcessHistoricalEntries { get; set; }
+        #endregion
+
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Name = "STARNET_MNQ_V2";
+                Description = "3-agent MNQ: +1 contract per reversal; reversed legs exit at +$100 total profit.";
+                Calculate = Calculate.OnEachTick;
+                BarsRequiredToTrade = 60;
+                EntriesPerDirection = 1;
+                EntryHandling = EntryHandling.AllEntries;
+                StopTargetHandling = StopTargetHandling.PerEntryExecution;
+                StartBehavior = StartBehavior.WaitUntilFlat;
+                RealtimeErrorHandling = RealtimeErrorHandling.StopCancelClose;
+                IsExitOnSessionCloseStrategy = true;
+                ExitOnSessionCloseSeconds = 30;
+                TimeInForce = TimeInForce.Day;
+                IsInstantiatedOnEachOptimizationIteration = true;
+
+                InitialContracts = 1;
+                MaxContracts = 3;
+                MaxReversalsPerCycle = 2;
+                StopLossDollars = 100;
+                ProfitTargetDollars = 100;
+                ReverseAtProfitDollars = 50;
+                ReverseAtLossDollars = 50;
+                ReverseTargetDollars = 50;
+                ReversedLegProfitExitDollars = 100;
+                DailyProfitLimit = 500;
+                DailyLossLimit = 300;
+                MaxTradesPerDay = 10;
+                CooldownSeconds = 30;
+                StartTime = 83500;
+                EndTime = 150000;
+                MinimumADX = 20;
+                StructureLookback = 3;
+                RequirePreviousColor = false;
+                EnableLogging = true;
+                ProcessHistoricalEntries = false;
+            }
+            else if (State == State.Configure)
+            {
+                // Set protection BEFORE each entry. Ticks mode preserves
+                // $100 risk PER MNQ contract as quantities increase.
+                int stopTicks = DollarsToTicksPerContract(StopLossDollars);
+                int initialTarget = DollarsToTicksPerContract(ProfitTargetDollars);
+                SetStopLoss(InitialLong, CalculationMode.Ticks, stopTicks, false);
+                SetProfitTarget(InitialLong, CalculationMode.Ticks, initialTarget);
+                SetStopLoss(InitialShort, CalculationMode.Ticks, stopTicks, false);
+                SetProfitTarget(InitialShort, CalculationMode.Ticks, initialTarget);
+                SetStopLoss(ReverseLong, CalculationMode.Ticks, stopTicks, false);
+                SetStopLoss(ReverseShort, CalculationMode.Ticks, stopTicks, false);
+                // Targets for the reversed signals are assigned dynamically
+                // in SubmitEntry() BEFORE each reversed entry is placed.
+            }
+            else if (State == State.DataLoaded)
+            {
+                ema20 = EMA(20);
+                ema50 = EMA(50);
+                adx14 = ADX(14);
+                AddChartIndicator(ema20);
+                AddChartIndicator(ema50);
+                phase = CyclePhase.Flat;
+                nextSide = MarketPosition.Flat;
+                activeEntrySignal = "";
+                expectedEntryQty = 0;
+                reversalCount = 0;
+                entriesToday = 0;
+                lastEntryBar = -1;
+                lastSignalLogBar = -1;
+                activeDate = DateTime.MinValue;
+                lastEntryBarTime = DateTime.MinValue;
+                lastHeartbeat = DateTime.MinValue;
+                dayStartingRealized = 0;
+                dailyLocked = false;
+                startupBlocked = false;
+                exitRequested = false;
+                blockReason = "";
+                Print("STARNET | DATA LOADED | Instrument=" + Instrument.FullName +
+                      " | HistoricalEntries=" + ProcessHistoricalEntries);
+            }
+            else if (State == State.Realtime)
+            {
+                // Historical simulated fills must never carry a pending
+                // reversal into a fresh live-only Sim101 run.
+                if (!ProcessHistoricalEntries &&
+                    Position.MarketPosition == MarketPosition.Flat &&
+                    AccountIsFlat())
+                {
+                    ResetCycle();
+                    startupBlocked = false;
+                    blockReason = "";
+                }
+                else if (phase != CyclePhase.Flat ||
+                         Position.MarketPosition != MarketPosition.Flat ||
+                         !AccountIsFlat())
+                {
+                    startupBlocked = true;
+                    blockReason = "STARTUP_POSITION_OR_PENDING_STATE";
+                }
+
+                Print("STARNET | REALTIME START | Phase=" + phase +
+                      " | Strategy=" + Position.MarketPosition +
+                      " | AccountFlat=" + AccountIsFlat() +
+                      " | HistoricalEntries=" + ProcessHistoricalEntries +
+                      " | Block=" + (startupBlocked ? blockReason : "NONE") +
+                      " | WaitUntilFlat=" + IsWaitUntilFlat);
+            }
+        }
+
+        private int DollarsToTicksPerContract(double dollars)
+        {
+            // One MNQ tick is $0.50. Fail closed if attached to a
+            // different instrument (checked again in OnBarUpdate).
+            return Math.Max(1, (int)Math.Round(dollars / 0.50,
+                MidpointRounding.AwayFromZero));
+        }
+
+        private bool AccountIsFlat()
+        {
+            // An account position is meaningful in real-time only;
+            // Strategy Analyzer uses synthetic strategy positions.
+            if (State != State.Realtime)
+                return true;
+            return PositionAccount != null &&
+                   PositionAccount.MarketPosition == MarketPosition.Flat;
+        }
+
+        private void ResetCycle()
+        {
+            phase = CyclePhase.Flat;
+            nextSide = MarketPosition.Flat;
+            activeEntrySignal = "";
+            expectedEntryQty = 0;
+            reversalCount = 0;
+            exitRequested = false;
+        }
+
+        private double RealizedPnL()
+        {
+            return SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit;
+        }
+
+        private bool CanReverse()
+        {
+            return reversalCount < MaxReversalsPerCycle &&
+                   expectedEntryQty < MaxContracts &&
+                   entriesToday < MaxTradesPerDay &&
+                   !dailyLocked;
+        }
+
+        protected override void OnBarUpdate()
+        {
+            if (BarsInProgress != 0)
+                return;
+
+            if (State == State.Realtime)
+                Heartbeat();
+
+            if (State == State.Historical && !ProcessHistoricalEntries)
+                return;
+
+            if (CurrentBar < Math.Max(BarsRequiredToTrade,
+                                      StructureLookback + 5))
+                return;
+
+            if (Instrument.MasterInstrument.Name != "MNQ" || startupBlocked)
+                return;
+
+            if (activeDate != Time[0].Date)
+            {
+                activeDate = Time[0].Date;
+                dayStartingRealized = RealizedPnL();
+                dailyLocked = false;
+                entriesToday = 0;
+                lastEntryBar = -1;
+                lastEntryBarTime = DateTime.MinValue;
+                lastSignalLogBar = -1;
+                WriteLog("NEW DAY | Baseline reset");
+            }
+
+            int chartClock = ToTime(Time[0]);
+            double realized = RealizedPnL() - dayStartingRealized;
+            double unrealized = Position.MarketPosition == MarketPosition.Flat
+                ? 0 : Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
+            double combined = realized + unrealized;
+
+            if (!dailyLocked &&
+                (combined >= DailyProfitLimit || combined <= -DailyLossLimit))
+            {
+                dailyLocked = true;
+                WriteLog("DAILY RISK LOCK | Combined=" + combined.ToString("F2"));
+            }
+
+            if (dailyLocked || chartClock >= EndTime)
+            {
+                if (phase == CyclePhase.ReverseReady)
+                    ResetCycle();
+                RequestSafetyExit(dailyLocked ? DailyExit : SessionExit);
+                return;
+            }
+
+            if (chartClock < StartTime || (State == State.Realtime && IsWaitUntilFlat))
+                return;
+
+            if (phase == CyclePhase.ReverseReady)
+            {
+                if (Position.MarketPosition != MarketPosition.Flat || !AccountIsFlat())
+                    return;
+                if (entriesToday >= MaxTradesPerDay ||
+                    reversalCount >= MaxReversalsPerCycle ||
+                    expectedEntryQty >= MaxContracts)
+                {
+                    WriteLog("PENDING REVERSE CANCELLED | Safety cap");
+                    ResetCycle();
+                    return;
+                }
+                SubmitEntry(nextSide, Math.Min(expectedEntryQty + 1, MaxContracts), true);
+                return;
+            }
+
+            if (Position.MarketPosition != MarketPosition.Flat)
+            {
+                // Do not act on partially filled entries or while an
+                // exit is working. Exit/reverse decisions are exclusive.
+                if (phase == CyclePhase.PositionOpen &&
+                    Position.Quantity == expectedEntryQty &&
+                    !exitRequested)
+                {
+                    if (reversalCount > 0)
+                    {
+                        // Once any reversal has occurred, prioritize closing
+                        // at +$100 TOTAL floating PnL instead of reversing
+                        // again at +$50. This is across ALL open contracts.
+                        if (unrealized >= ReversedLegProfitExitDollars)
+                        {
+                            RequestReversedProfitExit(unrealized);
+                        }
+                        // A reversed leg may still reverse with +1 MNQ on
+                        // a -$50 TOTAL loss, subject to cycle caps.
+                        else if (unrealized <= -ReverseAtLossDollars &&
+                                 CanReverse())
+                        {
+                            RequestReversal(unrealized);
+                        }
+                    }
+                    else if (CanReverse() &&
+                             (unrealized >= ReverseAtProfitDollars ||
+                              unrealized <= -ReverseAtLossDollars))
+                    {
+                        // Original 1-MNQ leg: +/-$50 causes first reversal.
+                        RequestReversal(unrealized);
+                    }
+                }
+                return;
+            }
+
+            if (phase != CyclePhase.Flat || exitRequested ||
+                (State == State.Realtime && !AccountIsFlat()))
+                return;
+
+            int oracle = OracleSignal();
+            int strategist = StrategistSignal();
+            int liquidity = LiquiditySignal();
+
+            string gate = "OPEN";
+            if (entriesToday >= MaxTradesPerDay)
+                gate = "MAX_DAILY_ENTRIES";
+            else if (lastEntryBar == CurrentBar)
+                gate = "SAME_BAR";
+            else if (lastEntryBarTime != DateTime.MinValue &&
+                     (Time[0] - lastEntryBarTime).TotalSeconds < CooldownSeconds)
+                gate = "COOLDOWN";
+
+            if (EnableLogging && lastSignalLogBar != CurrentBar)
+            {
+                lastSignalLogBar = CurrentBar;
+                WriteLog("AGENTS | O=" + oracle + " S=" + strategist +
+                    " L=" + liquidity + " ADX=" + adx14[0].ToString("F1") +
+                    " Gate=" + gate + " PnL=" + combined.ToString("F2"));
+            }
+
+            if (gate != "OPEN")
+                return;
+
+            if (oracle == 1 && strategist == 1 && liquidity == 1)
+                SubmitEntry(MarketPosition.Long, InitialContracts, false);
+            else if (oracle == -1 && strategist == -1 && liquidity == -1)
+                SubmitEntry(MarketPosition.Short, InitialContracts, false);
+        }
+
+        private int OracleSignal()
+        {
+            if (adx14[0] < MinimumADX) return 0;
+            if (ema20[0] > ema50[0] && Close[0] > ema20[0]) return 1;
+            if (ema20[0] < ema50[0] && Close[0] < ema20[0]) return -1;
+            return 0;
+        }
+
+        private int StrategistSignal()
+        {
+            if ((!RequirePreviousColor || Close[1] > Open[1]) &&
+                Close[0] > High[1]) return 1;
+            if ((!RequirePreviousColor || Close[1] < Open[1]) &&
+                Close[0] < Low[1]) return -1;
+            return 0;
+        }
+
+        private int LiquiditySignal()
+        {
+            double high = MAX(High, StructureLookback)[1];
+            double low = MIN(Low, StructureLookback)[1];
+            bool bullBreak = Close[0] > high;
+            bool bearBreak = Close[0] < low;
+            bool bull = bullBreak || (High[1] > High[2] && Low[1] >= Low[2]);
+            bool bear = bearBreak || (Low[1] < Low[2] && High[1] <= High[2]);
+            if (bull && !bear) return 1;
+            if (bear && !bull) return -1;
+            if (bullBreak && !bearBreak) return 1;
+            if (bearBreak && !bullBreak) return -1;
+            return 0;
+        }
+
+        private void SubmitEntry(MarketPosition side, int qty, bool reversing)
+        {
+            if (dailyLocked || startupBlocked || qty < 1 || qty > MaxContracts)
+                return;
+            if (Position.MarketPosition != MarketPosition.Flat ||
+                (State == State.Realtime && !AccountIsFlat()))
+                return;
+            if (phase != (reversing ? CyclePhase.ReverseReady : CyclePhase.Flat))
+                return;
+
+            string signal = reversing
+                ? (side == MarketPosition.Long ? ReverseLong : ReverseShort)
+                : (side == MarketPosition.Long ? InitialLong : InitialShort);
+
+            if (reversing)
+            {
+                // We have completed one more reversal on submission.
+                reversalCount++;
+
+                // For intermediate legs keep the ordinary $100 per-contract
+                // profit target beyond the +/-$50 reversal trigger.
+                // On FINAL leg use the requested $50 PER CONTRACT target.
+                bool finalLeg = reversalCount >= MaxReversalsPerCycle ||
+                                qty >= MaxContracts ||
+                                entriesToday + 1 >= MaxTradesPerDay;
+                int ticks = finalLeg
+                    ? DollarsToTicksPerContract(ReverseTargetDollars)
+                    : DollarsToTicksPerContract(ProfitTargetDollars);
+                SetProfitTarget(signal, CalculationMode.Ticks, ticks);
+            }
+            else
+            {
+                reversalCount = 0;
+            }
+
+            phase = CyclePhase.EntryPending;
+            nextSide = MarketPosition.Flat;
+            expectedEntryQty = qty;
+            activeEntrySignal = signal;
+            entriesToday++;
+            lastEntryBar = CurrentBar;
+            lastEntryBarTime = Time[0];
+
+            WriteLog("COMMANDER " + (reversing ? "REVERSE" : "INITIAL") +
+                " | " + side + " | Qty=" + qty +
+                " | Reversals=" + reversalCount +
+                " | Stop=$" + StopLossDollars + "/contract");
+
+            if (side == MarketPosition.Long)
+                EnterLong(qty, signal);
+            else
+                EnterShort(qty, signal);
+        }
+
+        private void RequestReversal(double openPnL)
+        {
+            if (phase != CyclePhase.PositionOpen || exitRequested || !CanReverse())
+                return;
+
+            nextSide = Position.MarketPosition == MarketPosition.Long
+                ? MarketPosition.Short : MarketPosition.Long;
+            phase = CyclePhase.ReversalExitPending;
+            exitRequested = true;
+            WriteLog("REVERSAL TRIGGER | OpenPnL=$" + openPnL.ToString("F2") +
+                " | Close Qty=" + Position.Quantity +
+                " | Next Qty=" + (expectedEntryQty + 1) +
+                " | NextSide=" + nextSide);
+
+            if (Position.MarketPosition == MarketPosition.Long)
+                ExitLong(ReverseExit, activeEntrySignal);
+            else
+                ExitShort(ReverseExit, activeEntrySignal);
+        }
+
+        private void RequestReversedProfitExit(double openPnL)
+        {
+            if (reversalCount <= 0 || phase != CyclePhase.PositionOpen ||
+                exitRequested || Position.MarketPosition == MarketPosition.Flat ||
+                string.IsNullOrEmpty(activeEntrySignal))
+                return;
+
+            exitRequested = true;
+            phase = CyclePhase.SafetyExitPending;
+            WriteLog("REVERSED PROFIT EXIT | Floating=$" + openPnL.ToString("F2") +
+                " | Threshold=$" + ReversedLegProfitExitDollars.ToString("F2") +
+                " TOTAL | Qty=" + Position.Quantity + " | No further reversal");
+
+            if (Position.MarketPosition == MarketPosition.Long)
+                ExitLong(ReverseProfitExit, activeEntrySignal);
+            else
+                ExitShort(ReverseProfitExit, activeEntrySignal);
+        }
+
+        private void RequestSafetyExit(string exitName)
+        {
+            if (Position.MarketPosition == MarketPosition.Flat || exitRequested ||
+                phase == CyclePhase.ReversalExitPending ||
+                string.IsNullOrEmpty(activeEntrySignal))
+                return;
+            exitRequested = true;
+            phase = CyclePhase.SafetyExitPending;
+            WriteLog("SAFETY EXIT | " + exitName);
+            if (Position.MarketPosition == MarketPosition.Long)
+                ExitLong(exitName, activeEntrySignal);
+            else
+                ExitShort(exitName, activeEntrySignal);
+        }
+
+        protected override void OnExecutionUpdate(
+            Execution execution, string executionId, double price, int quantity,
+            MarketPosition marketPosition, string orderId, DateTime time)
+        {
+            if (execution == null)
+                return;
+            string name = execution.Name;
+
+            if (name == InitialLong || name == InitialShort ||
+                name == ReverseLong || name == ReverseShort)
+            {
+                activeEntrySignal = name;
+                // A reversal must not start until the requested quantity
+                // has filled. Partial fills remain EntryPending.
+                if (Position.Quantity >= expectedEntryQty &&
+                    Position.MarketPosition != MarketPosition.Flat)
+                    phase = CyclePhase.PositionOpen;
+                WriteLog("ENTRY FILL | " + name + " Qty=" + quantity +
+                         " StrategyQty=" + Position.Quantity +
+                         " Expected=" + expectedEntryQty +
+                         " Price=" + price.ToString("F2"));
+                return;
+            }
+
+            if (name == ReverseExit)
+            {
+                WriteLog("REVERSAL EXIT FILL | Qty=" + quantity +
+                         " Remaining=" + Position.Quantity);
+                if (Position.MarketPosition == MarketPosition.Flat)
+                {
+                    exitRequested = false;
+                    activeEntrySignal = "";
+                    phase = CyclePhase.ReverseReady;
+                    if (dailyLocked)
+                        ResetCycle();
+                }
+                return;
+            }
+
+            WriteLog("EXIT FILL | " + name + " Qty=" + quantity +
+                     " Remaining=" + Position.Quantity);
+            if (Position.MarketPosition == MarketPosition.Flat)
+                ResetCycle();
+        }
+
+        protected override void OnOrderUpdate(
+            Order order, double limitPrice, double stopPrice, int quantity,
+            int filled, double averageFillPrice, OrderState orderState,
+            DateTime time, ErrorCode error, string comment)
+        {
+            if (order == null)
+                return;
+            string name = order.Name;
+            bool isEntry = name == InitialLong || name == InitialShort ||
+                           name == ReverseLong || name == ReverseShort;
+
+            if (orderState == OrderState.Rejected)
+            {
+                startupBlocked = true;
+                blockReason = "ORDER_REJECTED_" + name;
+                Print("STARNET ERROR | REJECTED | " + name +
+                      " | " + error + " | " + comment +
+                      " | Inspect account/orders; do not auto-resume.");
+                return;
+            }
+
+            if (orderState == OrderState.Cancelled)
+            {
+                if (isEntry && phase == CyclePhase.EntryPending)
+                {
+                    if (filled == 0 && Position.MarketPosition == MarketPosition.Flat)
+                        ResetCycle();
+                    else
+                    {
+                        startupBlocked = true;
+                        blockReason = "PARTIAL_ENTRY_CANCELLED";
+                        Print("STARNET ERROR | PARTIAL ENTRY CANCELLED | " + name +
+                              " | Check remaining position and protective orders.");
+                    }
+                }
+                else if (name == ReverseExit &&
+                         phase == CyclePhase.ReversalExitPending)
+                {
+                    startupBlocked = true;
+                    blockReason = "REVERSE_EXIT_CANCELLED";
+                    Print("STARNET ERROR | REVERSE EXIT CANCELLED | Check position and orders.");
+                }
+                else if ((name == DailyExit || name == SessionExit || name == ReverseProfitExit) &&
+                         phase == CyclePhase.SafetyExitPending)
+                {
+                    exitRequested = false;
+                    phase = CyclePhase.PositionOpen;
+                    Print("STARNET WARNING | SAFETY/PROFIT EXIT CANCELLED | " + name);
+                }
+            }
+        }
+
+        private void Heartbeat()
+        {
+            DateTime now = Core.Globals.Now;
+            if (lastHeartbeat != DateTime.MinValue &&
+                (now - lastHeartbeat).TotalSeconds < 60)
+                return;
+            lastHeartbeat = now;
+            string gate = "READY_CHECK_AGENTS";
+            if (startupBlocked) gate = blockReason;
+            else if (CurrentBar < BarsRequiredToTrade) gate = "NOT_ENOUGH_BARS";
+            else if (ToTime(Time[0]) < StartTime) gate = "BEFORE_START";
+            else if (ToTime(Time[0]) >= EndTime) gate = "AFTER_END";
+            else if (dailyLocked) gate = "DAILY_LOCK";
+            else if (IsWaitUntilFlat) gate = "WAIT_UNTIL_FLAT";
+            else if (phase != CyclePhase.Flat) gate = "PHASE_" + phase;
+            Print("STARNET DIAG | Bar=" +
+                (CurrentBar >= 0 ? Time[0].ToString("yyyy-MM-dd HH:mm:ss") : "NONE") +
+                " | Phase=" + phase +
+                " | StrategyPos=" + Position.MarketPosition +
+                " Qty=" + Position.Quantity +
+                " | AccountFlat=" + AccountIsFlat() +
+                " | Reversals=" + reversalCount +
+                " | EntriesToday=" + entriesToday +
+                " | Gate=" + gate);
+        }
+
+        private void WriteLog(string message)
+        {
+            if (!EnableLogging)
+                return;
+            string timestamp = CurrentBar >= 0
+                ? Time[0].ToString("yyyy-MM-dd HH:mm:ss")
+                : Core.Globals.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            Print(timestamp + " | STARNET V2 | " + message);
+        }
+    }
 }
-function frameLoop(t){if(t-lastPaint>150){lastPaint=t;drawFrame()}raf=requestAnimationFrame(frameLoop)}
-(function setupDraw(){const c=book.canvas;
-  c.addEventListener('pointerdown',e=>{if(!book.stream)return;drag={start:coords(e,c),end:coords(e,c)};c.setPointerCapture(e.pointerId)});
-  c.addEventListener('pointermove',e=>{if(drag)drag.end=coords(e,c)});
-  c.addEventListener('pointerup',e=>{if(!drag)return;const r=roiRect(drag.start,coords(e,c));drag=null;
-    if(r.w<.05||r.h<.07){log('Selection too small. Draw around the NQ heatmap again.');return}
-    book.roi=r;resetBook(true);log(`NQ region set x=${r.x.toFixed(3)} y=${r.y.toFixed(3)} w=${r.w.toFixed(3)} h=${r.h.toFixed(3)}; history reset`);render()});
-  c.addEventListener('pointercancel',()=>{drag=null})})();
-frameLoop(0);
-function bookPreset(){book.roi={x:.53,y:.20,w:.23,h:.53};resetBook(true);log('NQ starter area applied. Adjust it so it covers only the NQ heatmap and its live right edge.');render()}
-$('bookPreset').onclick=bookPreset;
-
-/* ---------- Share ---------- */
-async function share(){try{
-  if(!navigator.mediaDevices?.getDisplayMedia)throw Error('Use Chrome/Edge on an HTTPS page or localhost');
-  const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:15},audio:false});
-  if(book.stream)for(const t of book.stream.getTracks())t.stop();
-  book.stream=stream;book.video.srcObject=stream;await book.video.play();
-  stream.getVideoTracks()[0].addEventListener('ended',()=>{if(book.stream===stream)stopShare()},{once:true});
-  const s=stream.getVideoTracks()[0].getSettings();log(`Bookmap shared (${s.width||'?'}x${s.height||'?'} @ ${s.frameRate||'?'}fps).`);
-  if(!book.roi)bookPreset();$('bookShare').textContent='Replace Bookmap share';render();
-}catch(e){log('Bookmap capture canceled/failed: '+e.message);$('bookStatus').textContent='Capture error: '+e.message}}
-$('bookShare').onclick=share;
-function stopShare(){if(book.stream)for(const t of book.stream.getTracks())t.stop();book.stream=null;book.video.srcObject=null;resetBook(true);
-  $('bookShare').textContent='Share Bookmap';log('Bookmap share stopped');stopMonitor()}
-$('bookStop').onclick=stopShare;
-
-/* ---------- Pixel analysis ---------- */
-const heat=document.createElement('canvas');heat.width=HW;heat.height=HH;const hc=heat.getContext('2d',{willReadFrequently:true});
-function colorType(r,g,b,p){const mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<p.sat||mx<p.bright)return 0;
-  if(g>r*p.ratio&&g>b*p.ratio*.9&&g>=p.bright)return 1;
-  if(r>g*p.ratio&&r>b*p.ratio*.9&&r>=p.bright)return -1;
-  return 0}
-// Liquidity intensity 0..1 from a heatmap pixel. Bookmap's ramp runs dark → blue → cyan → green → yellow → orange → red → white as liquidity grows.
-function heatIntensity(r,g,b,p){const mx=Math.max(r,g,b),mn=Math.min(r,g,b),v=mx/255;if(v<p.liqFloor)return 0;
-  if(p.heatModel==='lum')return clamp01(((.30*r+.59*g+.11*b)/255-p.liqFloor)/(1-p.liqFloor));
-  const s=mx?(mx-mn)/mx:0;if(s<.2)return v>.75?1:v*.5; // white/grey = very heavy if bright
-  let h;const d=mx-mn;if(mx===r)h=60*(((g-b)/d)%6);else if(mx===g)h=60*((b-r)/d+2);else h=60*((r-g)/d+4);if(h<0)h+=360;
-  let f=h>=280?.9:h>=200?.2:h>=150?.35:h>=90?.5:h>=45?.7:h>=20?.82:.92;
-  return clamp01(f*(.45+.55*v))}
-function capture(){const v=book.video,r=book.roi;if(!book.stream||!live(v)||!r)return null;
-  const x=Math.max(0,Math.floor(r.x*v.videoWidth)),y=Math.max(0,Math.floor(r.y*v.videoHeight)),
-    w=Math.min(v.videoWidth-x,Math.max(1,Math.floor(r.w*v.videoWidth))),h=Math.min(v.videoHeight-y,Math.max(1,Math.floor(r.h*v.videoHeight)));
-  if(w<8||h<8)return null;hc.drawImage(v,x,y,w,h,0,0,HW,HH);return hc.getImageData(0,0,HW,HH).data}
-
-function liquidityProfile(data,p){const x0=Math.floor(HW*(1-p.liqStrip)),cols=[],prof=new Float32Array(HH);
-  for(let y=0;y<HH;y++){cols.length=0;for(let x=x0;x<HW;x++){const q=(y*HW+x)*4;cols.push(heatIntensity(data[q],data[q+1],data[q+2],p))}
-    cols.sort((a,b)=>a-b);prof[y]=cols.length?cols[cols.length>>1]:0} // row median: ignores bubbles crossing the strip
-  return prof}
-
-function liquidityRead(prof,ref,p){const py=Math.round(ref*HH),gap=Math.max(1,Math.round(p.liqGap*HH)),range=Math.round(p.liqRange*HH),decay=p.liqDecay*HH;
-  let bid=0,bidW=0,ask=0,askW=0,wallA=null,wallB=null,wallAV=0,wallBV=0;
-  for(let d=gap;d<=range;d++){const w=1/(1+d/decay),ya=py-d,yb=py+d;
-    if(ya>=0){const v=prof[ya];ask+=v*w;askW+=w;if(wallA==null&&v>=p.wall){wallA=d/HH;wallAV=v}}
-    if(yb<HH){const v=prof[yb];bid+=v*w;bidW+=w;if(wallB==null&&v>=p.wall){wallB=d/HH;wallBV=v}}}
-  if(askW<1||bidW<1)return{avail:false,reason:askW<1?'price at top edge':'price at bottom edge'};
-  const bidAvg=bid/bidW,askAvg=ask/askW;let L=(bidAvg-askAvg)/(bidAvg+askAvg+1e-6);
-  // Wall bonus: the closer of the two walls pushes the reading (bid wall close below = support, ask wall close above = resistance)
-  let wallTerm=0;const prox=d=>d==null?0:1/(1+d/p.liqDecay);wallTerm=prox(wallB)*wallBV-prox(wallA)*wallAV;
-  L=clamp1(L+p.wallW*wallTerm*.5);
-  return{avail:true,L,bidAvg,askAvg,wallA,wallB}}
-
-function sample(){const t0=performance.now(),p=P(),data=capture();if(!data)return;const t=now();
-  const types=new Int8Array(HW*HH),prev=book.prevData,pt=book.prevType,edgeX0=Math.floor(HW*(1-p.edge));
-  let g=0,r=0,motion=0,n=0,sumY=0,cnt=0;const mask=[];
-  for(let y=3;y<HH-3;y+=2)for(let x=3;x<HW-3;x+=2){const i=y*HW+x,q=i*4,ty=colorType(data[q],data[q+1],data[q+2],p);types[i]=ty;
-    if(!prev)continue;const d=Math.abs(data[q]-prev[q])+Math.abs(data[q+1]-prev[q+1])+Math.abs(data[q+2]-prev[q+2]);motion+=d;n++;
-    if(ty===0||d<p.diff||pt[i]===ty)continue;
-    const inEdge=x>=edgeX0;if(p.biasArea==='full'||inEdge){if(ty>0)g++;else r++}
-    if(inEdge){sumY+=y;cnt++}
-    if(mask.length<5000&&(p.biasArea==='full'||inEdge))mask.push([x,y,ty])}
-  book.prevData=data;book.prevType=types;book.mask=mask;
-  // Liquidity profile every capture
-  const prof=liquidityProfile(data,p);book.profile=prof;
-  const cy=cnt>=p.minCent?(sumY/cnt)/HH:null;if(cy!=null){book.lastCy=cy;book.lastCyT=t}
-  let ref=.5,refSrc='ROI middle';
-  if(p.priceRef==='bubbles'){if(book.lastCy!=null&&t-book.lastCyT<=p.refHold){ref=book.lastCy;refSrc=cy!=null?'bubbles (live)':`bubbles (${((t-book.lastCyT)/1000).toFixed(1)}s old)`}else refSrc='ROI middle (no recent prints)'}
-  book.ref=ref;book.refSrc=refSrc;
-  const liq=liquidityRead(prof,ref,p);book.liq=liq;
-  if(!prev){render();return}
-  const m=motion/Math.max(1,n);if(m>p.motion)book.lastMotion=t;
-  book.samples.push({t,g,r,motion:m,cy,cnt,L:liq.avail?liq.L:null});
-  book.samples=book.samples.filter(s=>t-s.t<=305000);
-  const row=[new Date(t).toISOString(),g,r,m.toFixed(2),cy==null?'':cy.toFixed(4),ref.toFixed(4),liq.avail?liq.L.toFixed(3):'',liq.avail?liq.bidAvg.toFixed(3):'',liq.avail?liq.askAvg.toFixed(3):'',liq.wallB==null?'':liq.wallB.toFixed(3),liq.wallA==null?'':liq.wallA.toFixed(3)];
-  for(const tf of TFS){const s=st[tf],res=assess(p,t,tf,s,tf===p.tf);s.res=res;s.scores.push({t,s:res.score});s.scores=s.scores.filter(x=>t-x.t<=95000);
-    row.push(res.score.toFixed(3),res.bias.toFixed(3),res.driftAvail?res.drift.toFixed(3):'',res.liqAvail?res.liq.toFixed(3):'',res.stackAvail?res.stack.toFixed(3):'',res.conf.toFixed(2),s.label)}
-  if(monitoring&&st[15].res&&st[15].label!=='WAIT')stUpdate(p,t,st[15].res.score);
-  applyAlign(p,t);row.push(htf[60].dir,htf[300].dir,align.label,align.why,stf.n?stDir(p):'',stf.live?stf.live.line.toFixed(3):'',align.stBlock||'');
-  logRows.push(row);if(logRows.length>40000)logRows.shift();
-  book.ms=performance.now()-t0;render()}
-
-/* ---------- Assessment per interval ---------- */
-function assess(p,t,tf,s,isPrimary){const win=tf*1000,arr=book.samples.filter(x=>t-x.t<=win),
-  out={tf,bias:0,drift:0,liq:0,stack:0,driftAvail:false,liqAvail:false,stackAvail:false,G:0,R:0,score:0,conf:0,agreeFrac:null,n:arr.length,fill:0,reason:'',reasonCode:''};
-  const span=arr.length?(arr.at(-1).t-arr[0].t):0;out.fill=Math.min(1,span/win);
-  // recency weights
-  const wOf=x=>1+p.recency*(1-(t-x.t)/win);
-  // bubbles: color bias
-  let G=0,R=0;for(const x of arr){const w=wOf(x);G+=x.g*w;R+=x.r*w}out.G=G;out.R=R;
-  const act=G+R,minAct=Math.max(2,p.minAct*tf/15),lowAct=act<minAct;out.minAct=minAct;out.bias=act>0?(G-R)/act:0;
-  const bEff=lowAct?out.bias*(act/minAct):out.bias;
-  // bubbles: drift
-  const pts=arr.filter(x=>x.cy!=null);
-  if(pts.length>=3){const t0=pts[0].t,sp=(pts.at(-1).t-t0)/1000;if(sp>=Math.max(.4,.5*tf)){let sx=0,sy=0,sxx=0,sxy=0,k=pts.length;
-    for(const x of pts){const xx=(x.t-t0)/1000;sx+=xx;sy+=x.cy;sxx+=xx*xx;sxy+=xx*x.cy}const den=k*sxx-sx*sx;
-    if(den>1e-9){const slope=(k*sxy-sx*sy)/den,moved=slope*tf,full=p.driftFull*Math.sqrt(tf/15);out.drift=clamp1(-moved/full);out.driftAvail=true}}}
-  // liquidity stacking: recency-weighted mean imbalance
-  const lp=arr.filter(x=>x.L!=null),sign=p.liqMode==='magnet'?-1:1;
-  if(lp.length){let sL=0,sW=0;for(const x of lp){const w=wOf(x);sL+=x.L*w;sW+=w}out.liqRaw=sL/sW;out.liq=clamp1(sign*out.liqRaw/p.liqFull);out.liqAvail=true}
-  // stacking change: imbalance now vs start of window (avg of first/last 20% to reduce noise)
-  if(lp.length>=2&&(lp.at(-1).t-lp[0].t)>=Math.max(.4,.5*tf)*1000){const k=Math.max(1,Math.round(lp.length*.2)),a=lp.slice(0,k),b=lp.slice(-k),
-    avg=z=>z.reduce((s,x)=>s+x.L,0)/z.length;out.stackRaw=avg(b)-avg(a);out.stack=clamp1(sign*out.stackRaw/p.stackFull);out.stackAvail=true}
-  // composite
-  const comps=[[p.wB,bEff,true],[p.wD,out.drift,out.driftAvail],[p.wL,out.liq,out.liqAvail],[p.wS,out.stack,out.stackAvail]];
-  let num_=0,den_=0,pos=0,neg=0;for(const [w,v,ok] of comps){if(!ok||w<=0)continue;num_+=w*v;den_+=w;if(v>.05)pos+=w;else if(v<-.05)neg+=w}
-  out.score=den_>0?clamp1(num_/den_):0;out.agreeFrac=(pos+neg)>0?Math.max(pos,neg)/(pos+neg):null;
-  const actF=out.liqAvail?Math.max(.5,Math.min(1,act/(minAct*3))):Math.min(1,act/(minAct*3));
-  out.conf=Math.min(1,Math.abs(out.score)/Math.max(.05,p.enter))*actF*(out.agreeFrac==null?.6:.4+.6*out.agreeFrac);
-  // gating
-  const total=book.samples.length?t-book.samples[0].t:0,frozen=!book.lastMotion||t-book.lastMotion>p.frozen;
-  let label;
-  if(!monitoring){label='WAIT';out.reason='Click Start NQ monitoring.';out.reasonCode='paused'}
-  else if(total<Math.min(p.warm,win)){label='WAIT';out.reason=`Warming up (${(total/1000).toFixed(1)} s).`;out.reasonCode='warmup'}
-  else if(frozen){label='WAIT';out.reason='Bookmap video looks frozen, or there is no measurable movement in the NQ region.';out.reasonCode='frozen'}
-  else{const sc=out.score,abs=Math.abs(sc),dir=sc>0?'BULLISH':'BEARISH';let target;
-    if(abs>=p.enter)target=dir;else if((s.label==='BULLISH'&&sc>p.exit)||(s.label==='BEARISH'&&sc<-p.exit))target=s.label;else target='NEUTRAL';
-    if(target!==s.label&&target!=='NEUTRAL'){if(s.pending===target)s.pendingCount++;else{s.pending=target;s.pendingCount=1}
-      label=s.pendingCount>=p.confirm?target:(s.label==='WAIT'?'NEUTRAL':s.label)}
-    else{s.pending=null;s.pendingCount=0;label=target}
-    const parts=`bias ${fmtS(out.bias)}, drift ${out.driftAvail?fmtS(out.drift):'n/a'}, liq ${out.liqAvail?fmtS(out.liq):'n/a'}, stack ${out.stackAvail?fmtS(out.stack):'n/a'}`;
-    if(label==='BULLISH')out.reason=`Buy side leading: ${p.liqMode==='magnet'?'liquidity above is drawing price':'bids stacked below'} and/or green prints/higher prints (${parts}).`;
-    else if(label==='BEARISH')out.reason=`Sell side leading: ${p.liqMode==='magnet'?'liquidity below is drawing price':'asks stacked above'} and/or red prints/lower prints (${parts}).`;
-    else out.reason=`Mixed or weak: |score| ${(abs*100).toFixed(0)} is below the enter threshold ${(p.enter*100).toFixed(0)} (${parts}).`+(lowAct?` Low print activity (${act.toFixed(0)} < ${minAct.toFixed(0)} px).`:'');
-    out.reasonCode=label.toLowerCase();
-    if(s.pending&&label!==s.pending)out.reason+=` Confirming ${s.pending} ${s.pendingCount}/${p.confirm}…`;
-    if(out.fill<1)out.reason+=` (window ${Math.round(out.fill*100)}% filled)`}
-  if(label!==s.label){const prevL=s.label;s.label=label;s.changes.unshift({t,label,score:out.score});s.changes=s.changes.slice(0,40);
-    if(isPrimary&&false){log(`[raw ${tfName(tf)}] ${prevL} → ${label} score ${fmtS(out.score)} | bias ${fmtS(out.bias)} drift ${out.driftAvail?fmtS(out.drift):'n/a'} liq ${out.liqAvail?fmtS(out.liq):'n/a'} stack ${out.stackAvail?fmtS(out.stack):'n/a'} act ${act.toFixed(0)}`);
-}}
-  return out}
-
-/* ---------- 15s / 1m / 5m alignment ---------- */
-function updateHtf(p){for(const tf of HTF){const s=st[tf],r=s.res,h=htf[tf];
-  h.ready=!!r&&monitoring&&s.label!=='WAIT'&&r.fill>=p.filtFill;h.score=r?r.score:null;h.fill=r?r.fill:0;h.label=s.label;
-  if(!r){h.dir=0;continue}const sc=r.score,m=p.filtMin;
-  if(sc>=m)h.dir=1;else if(sc<=-m)h.dir=-1;
-  else if(h.dir===1&&sc>m*p.filtHold)h.dir=1;else if(h.dir===-1&&sc<-m*p.filtHold)h.dir=-1;else h.dir=0}}
-// direction each interval votes: +1 bullish, -1 bearish, 0 not aligned
-function tfVote(p,tf){const s=st[tf];if(!monitoring||!s.res||s.label==='WAIT')return 0;
-  if(tf===15)return s.label==='BULLISH'?1:s.label==='BEARISH'?-1:0;
-  const h=htf[tf];if(!h.ready)return 0;
-  if(p.alignMode==='trend')return h.dir;
-  return s.label==='BULLISH'?1:s.label==='BEARISH'?-1:0}
-let lastUtter=null,voiceStat='not used yet';
-// Chrome quirks handled: background tabs can leave the synth paused (resume), cancel()+speak() in the same tick can drop the
-// utterance (small delay), and utterances can be garbage-collected mid-speech (keep a reference).
-function speak(text,p,force){if(!(p.voice||force))return;if(!('speechSynthesis' in window)){voiceStat='no speech synthesis in this browser';log(voiceStat);return}
-  try{const go=()=>{const u=new SpeechSynthesisUtterance(text);u.rate=p.voiceRate;u.volume=p.voiceVol;u.lang='en-US';lastUtter=u;
-      u.onstart=()=>{voiceStat=`spoke "${text}" ${stamp()}`};u.onerror=e=>{voiceStat='speech error: '+e.error;log('Speech error: '+e.error)};
-      speechSynthesis.resume();speechSynthesis.speak(u);voiceStat=`queued "${text}" ${stamp()}`;
-      setTimeout(()=>{if(lastUtter===u&&voiceStat.startsWith('queued')){log('Voice did not start within 3s. Click anywhere on this page once, then use Simulate BUY.');voiceStat='blocked? click the page once'}},3000)};
-    if(speechSynthesis.speaking||speechSynthesis.pending){speechSynthesis.cancel();setTimeout(go,80)}else go()}
-  catch(e){voiceStat='speech failed: '+e.message;log(voiceStat)}}
-/* ---------- Supertrend on the 15s score ---------- */
-// Standard Supertrend math (RMA ATR, hl2 ± mult·ATR, trailing final bands) applied to bars of the 15s composite score.
-function stCalc(p,S,b){const tr=S.prevC==null?b.h-b.l:Math.max(b.h-b.l,Math.abs(b.h-S.prevC),Math.abs(b.l-S.prevC)),n=S.n+1,per=p.stAtr;
-  const atr=S.atr==null?tr:n<=per?(S.atr*S.n+tr)/n:(S.atr*(per-1)+tr)/per,a=Math.max(atr,p.stMinAtr),hl2=(b.h+b.l)/2,bu=hl2+p.stMult*a,bl=hl2-p.stMult*a;
-  const up=(S.up==null||bu<S.up||S.prevC>S.up)?bu:S.up,lo=(S.lo==null||bl>S.lo||S.prevC<S.lo)?bl:S.lo;
-  let dir=S.dir;if(dir===0)dir=b.c>=hl2?1:-1;else if(dir===-1&&b.c>up)dir=1;else if(dir===1&&b.c<lo)dir=-1;
-  return{atr,n,up,lo,dir,line:dir===1?lo:up,prevC:b.c}}
-function stUpdate(p,t,v){const bs=p.stBar*1000,start=Math.floor(t/bs)*bs;
-  if(!stf.cur)stf.cur={s:start,o:v,h:v,l:v,c:v};
-  else if(stf.cur.s!==start){const prevDir=stf.dir,r=stCalc(p,stf,stf.cur);Object.assign(stf,r);
-    stf.bars.push({c:stf.cur.c,h:stf.cur.h,l:stf.cur.l,line:r.line,dir:r.dir});if(stf.bars.length>150)stf.bars.shift();
-    if(prevDir!==0&&r.dir!==prevDir)log(`Score Supertrend flipped ${r.dir>0?'UP ▲':'DOWN ▼'} (close ${fmtS(stf.cur.c)}, line ${fmtS(r.line)}, ATR ${r.atr.toFixed(3)})`);
-    stf.cur={s:start,o:v,h:v,l:v,c:v}}
-  else{const c=stf.cur;c.h=Math.max(c.h,v);c.l=Math.min(c.l,v);c.c=v}
-  stf.live=stCalc(p,stf,stf.cur)}
-const stDir=p=>p.stFlip==='live'&&stf.live?stf.live.dir:stf.dir;
-const stReady=p=>stf.n>=p.stMinBars;
-function drawStChart(p){const cv=$('stChart'),c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
-  const yOf=v=>H/2-Math.max(-1.2,Math.min(1.2,v))*(H/2-4)/1.2;c.strokeStyle='#2d4560';c.lineWidth=1;c.beginPath();c.moveTo(0,H/2);c.lineTo(W,H/2);c.stroke();
-  const bars=stf.bars.slice(-60);if(stf.cur&&stf.live)bars.push({c:stf.cur.c,line:stf.live.line,dir:stf.live.dir,live:true});if(bars.length<2)return;
-  const dx=W/(Math.max(bars.length,60)-1),x0=W-(bars.length-1)*dx;
-  for(let i=1;i<bars.length;i++){const a=bars[i-1],b=bars[i];c.strokeStyle=b.dir>0?'#55ddb0':'#ff7e95';c.lineWidth=2;
-    if(a.dir===b.dir){c.beginPath();c.moveTo(x0+(i-1)*dx,yOf(a.line));c.lineTo(x0+i*dx,yOf(b.line));c.stroke()}}
-  c.strokeStyle='#e8f1ff';c.lineWidth=1.5;c.beginPath();bars.forEach((b,i)=>{const x=x0+i*dx,y=yOf(b.c);i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke()}
-
-const trigTfs=p=>p.trigger==='15s'?[15]:p.trigger==='15_1m'?[15,60]:TFS;
-function applyAlign(p,t){updateHtf(p);const used=trigTfs(p),votes=used.map(tf=>tfVote(p,tf));
-  let target='WAIT';if(votes.every(v=>v===1))target='BUY';else if(votes.every(v=>v===-1))target='SELL';
-  let stBlock='';
-  if(p.stOn&&target!=='WAIT'){const want=target==='BUY'?1:-1,d=stDir(p);
-    if(!stReady(p)){if(p.stWarm==='block'){stBlock=`Supertrend warming ${stf.n}/${p.stMinBars} bars`;target='WAIT'}}
-    else if(d!==want){stBlock=`${target} held: score Supertrend is ${d>0?'UP':'DOWN'}`;target='WAIT'}}
-  align.stBlock=stBlock;
-  const why=used.map((tf,i)=>`${tfName(tf)} ${votes[i]>0?'▲':votes[i]<0?'▼':'·'}`).join(' ')+(p.stOn?` ST ${!stReady(p)?'…':stDir(p)>0?'▲':'▼'}`:'');align.votes=votes;align.why=why;
-  let label=target;
-  if(target!==align.label&&target!=='WAIT'){if(align.pending===target)align.pendingCount++;else{align.pending=target;align.pendingCount=1}
-    if(align.pendingCount<p.alignConfirm)label=align.label}else{align.pending=null;align.pendingCount=0}
-  if(label!==align.label){const prevL=align.label;align.label=label;const sc=st[15].res?st[15].res.score:0;
-    align.changes.unshift({t,label,why,score:sc});align.changes=align.changes.slice(0,40);
-    log(`[ALIGN ${p.trigger}] ${prevL} → ${label} | ${why} | 15s ${fmtS(st[15].res?.score)} 1m ${fmtS(st[60].res?.score)} 5m ${fmtS(st[300].res?.score)}`);
-    if(label==='BUY'||label==='SELL'){
-      if(t-align.lastSpoken[label]>=p.cooldown){const txt=label==='BUY'?p.buyText:p.sellText;speak(txt,p);align.lastSpoken[label]=t;align.lastSpokenText=txt;align.lastSpokenAt=t;align.lastRepeat=t;log(`Spoke "${txt}"`)}
-      else log(`${label} alert suppressed (cooldown ${Math.round((p.cooldown-(t-align.lastSpoken[label]))/1000)}s left)`);
-      if(p.sound)beep(label==='BUY'?'BULLISH':'BEARISH')}
-    else if(prevL==='BUY'||prevL==='SELL'){if(p.speakExit){speak(p.exitText,p);align.lastSpokenText=p.exitText;align.lastSpokenAt=t}if(p.sound)beep('NEUTRAL')}}
-  else if((label==='BUY'||label==='SELL')&&p.repeat>0&&t-align.lastRepeat>=p.repeat){const txt=label==='BUY'?p.buyText:p.sellText;speak(txt,p);align.lastRepeat=t;align.lastSpoken[label]=t;align.lastSpokenText=txt;align.lastSpokenAt=t}}
-
-function momentum(p){const sc=st[p.tf].scores;if(sc.length<3)return null;const last=sc.at(-1),ref=sc.filter(s=>last.t-s.t>=p.momentum).at(-1);return ref?last.s-ref.s:null}
-function beep(label){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();
-  o.frequency.value=label==='BULLISH'?880:label==='BEARISH'?330:550;g.gain.setValueAtTime(.12,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.25);
-  o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.26)}catch(e){log('Sound failed: '+e.message)}}
-
-/* ---------- Render ---------- */
-const spark=$('spark'),sctx=spark.getContext('2d');
-function drawSpark(p){const W=spark.width,H=spark.height,t=now();sctx.clearRect(0,0,W,H);const yOf=v=>H/2-v*(H/2-6);
-  sctx.strokeStyle='#2d4560';sctx.lineWidth=1;sctx.beginPath();sctx.moveTo(0,H/2);sctx.lineTo(W,H/2);sctx.stroke();
-  sctx.setLineDash([4,4]);sctx.strokeStyle='#ffffff40';for(const v of [p.enter,-p.enter]){sctx.beginPath();sctx.moveTo(0,yOf(v));sctx.lineTo(W,yOf(v));sctx.stroke()}sctx.setLineDash([]);
-  const sc=st[p.tf].scores.filter(s=>t-s.t<=90000);if(sc.length<2)return;sctx.lineWidth=2;
-  for(let i=1;i<sc.length;i++){const a=sc[i-1],b=sc[i],x1=W*(1-(t-a.t)/90000),x2=W*(1-(t-b.t)/90000);
-    sctx.strokeStyle=b.s>=p.enter?'#55ddb0':b.s<=-p.enter?'#ff7e95':'#ffda8b';sctx.beginPath();sctx.moveTo(x1,yOf(a.s));sctx.lineTo(x2,yOf(b.s));sctx.stroke()}}
-const cls=l=>l==='BULLISH'?'bull':l==='BEARISH'?'bear':l==='NEUTRAL'?'neutral':'';
-function render(){const p=P(),t=now(),S=st[p.tf],res=S.res;
-  $('winLbl').textContent=tfName(p.tf);
-  $('bookStatus').textContent=book.stream?(book.roi?'Sharing • NQ region selected':'Sharing • draw the NQ region'):'Not sharing';
-  $('bookStop').disabled=!book.stream;$('bookPreset').disabled=!book.stream;$('start').disabled=monitoring||!book.stream||!book.roi;$('pause').disabled=!monitoring;
-  const label=monitoring?align.label:'WAIT',el=$('signal');el.textContent=label;el.className='signal '+(label==='BUY'?'bull':label==='SELL'?'bear':'');
-  const chip=tf=>{const l=monitoring?st[tf].label:'WAIT';return `${tfName(tf)} <strong class="${cls(l)}">${l}</strong>`};
-  $('rawLine').innerHTML=monitoring?TFS.map(chip).join(' &nbsp;•&nbsp; ')+` &nbsp;<span class="muted">(trigger: ${p.trigger==='all3'?'all 3':p.trigger==='15_1m'?'15s + 1m':'15s only'})</span>`+(align.pending&&align.pending!==align.label?` &nbsp;→ confirming ${align.pending} ${align.pendingCount}/${p.alignConfirm}`:''):'—';
-  for(const tf of TFS){const s=st[tf],r=s.res,h=htf[tf],v=tfVote(p,tf);
-    $('a'+tf).innerHTML=!monitoring||!r?'—':`<span class="${v>0?'bull':v<0?'bear':'neutral'}">${v>0?'▲ aligned bull':v<0?'▼ aligned bear':'· not aligned'}</span> ${s.label} ${fmtS(r.score)}${tf!==15&&h&&!h.ready?' • warming '+Math.round(r.fill*100)+'%':''}`}
-  $('aHealth').textContent=`${voiceStat} • ${document.hidden?'TAB HIDDEN':'tab visible'} • tick gap ${lastTick?Math.round(maxGap)+' ms':'—'}`;
-  $('aSt').innerHTML=!p.stOn?'off':!stf.n&&!stf.live?'waiting for bars':`<span class="${stDir(p)>0?'bull':'bear'}">${stDir(p)>0?'▲ UP':'▼ DOWN'}</span> line ${fmtS((p.stFlip==='live'&&stf.live?stf.live:stf).line)} • ${stReady(p)?'ready':'warming '+stf.n+'/'+p.stMinBars}${align.stBlock?' • <span class="neutral">'+align.stBlock+'</span>':''}`;
-  drawStChart(p);
-  $('aLast').textContent=align.lastSpokenAt?`"${align.lastSpokenText}" at ${new Date(align.lastSpokenAt).toLocaleTimeString()}`:'—';
-  $('quality').textContent=!monitoring?'PAUSED':label==='WAIT'?'NO ALIGNMENT':'ALL 3 ALIGNED';$('quality').className='tag '+(label==='WAIT'?'bad':'ok');
-  $('thL').style.left=(50-50*p.enter)+'%';$('thR').style.left=(50+50*p.enter)+'%';
-  if(res&&monitoring){$('reason').textContent=res.reason;$('needle').style.left=(50+50*res.score)+'%';$('scoreTxt').textContent='score '+fmtS(res.score);
-    $('cBias').textContent=fmtS(res.bias)+' ('+(res.G+res.R?Math.round(100*res.G/(res.G+res.R)):0)+'% green)';
-    $('cDrift').textContent=res.driftAvail?fmtS(res.drift)+(res.drift>0?' ▲ higher':res.drift<0?' ▼ lower':''):'n/a';
-    $('cAgree').textContent=res.agreeFrac==null?'—':Math.round(res.agreeFrac*100)+'% of weight';
-    $('cAct').textContent=Math.round(res.G+res.R)+' px (min '+res.minAct.toFixed(0)+')';$('cFill').textContent=Math.round(res.fill*100)+'% ('+res.n+' captures)';
-    const tot=res.G+res.R;$('greenbar').style.width=(tot?100*res.G/tot:0)+'%';$('redbar').style.width=(tot?100*res.R/tot:0)+'%';
-    const mo=momentum(p);$('momentum').textContent=mo==null?'Momentum: —':mo>.10?`Momentum: building bullish ▲ (+${(mo*100).toFixed(0)} in ${p.momentum/1000}s)`:mo<-.10?`Momentum: building bearish ▼ (${(mo*100).toFixed(0)} in ${p.momentum/1000}s)`:`Momentum: steady (${fmtS(mo)})`;
-  }else if(!monitoring){$('reason').textContent=book.stream?(book.roi?'Click Start NQ monitoring.':'Drag a region around the NQ heatmap.'):'Share the Bookmap stream to begin.';$('momentum').textContent='—'}
-  $('cMs').textContent=book.ms!=null?book.ms.toFixed(1)+' ms':'—';
-  const L=book.liq;
-  if(L&&L.avail){$('lBid').textContent=(L.bidAvg*100).toFixed(0);$('lAsk').textContent=(L.askAvg*100).toFixed(0);
-    $('lImb').innerHTML=`<span class="${L.L>.05?'bull':L.L<-.05?'bear':'neutral'}">${fmtS(L.L)} ${L.L>.05?'bids heavier':L.L<-.05?'asks heavier':'balanced'}</span>`;
-    $('lWallB').textContent=L.wallB==null?'none in range':(L.wallB*100).toFixed(1)+'% h below';$('lWallA').textContent=L.wallA==null?'none in range':(L.wallA*100).toFixed(1)+'% h above';
-    const tt=L.bidAvg+L.askAvg;$('bidbar').style.width=(tt?100*L.bidAvg/tt:50)+'%';$('askbar').style.width=(tt?100*L.askAvg/tt:50)+'%'}
-  else if(L){$('lImb').textContent='n/a ('+L.reason+')'}
-  $('lRef').textContent=book.ref==null?'—':`${(book.ref*100).toFixed(0)}% from top • ${book.refSrc}`;
-  $('cMotion').textContent=book.lastMotion?(t-book.lastMotion>p.frozen?'possibly frozen':'changing'):'not established';
-  $('mtfBody').innerHTML=TFS.map(tf=>{const s=st[tf],r=s.res,l=monitoring?s.label:'WAIT';
-    return `<tr class="${tf===p.tf?'primary':''}"><td>${tfName(tf)}</td><td class="${cls(l)}"><strong>${l}</strong></td><td>${r?fmtS(r.score):'—'}</td><td>${r?fmtS(r.bias):'—'}</td><td>${r&&r.driftAvail?fmtS(r.drift):'—'}</td><td>${r&&r.liqAvail?fmtS(r.liq):'—'}</td><td>${r&&r.stackAvail?fmtS(r.stack):'—'}</td><td>${r?Math.round(r.conf*100)+'%':'—'}</td></tr>`}).join('');
-  if(align.changes.length){$('hist').classList.remove('muted');$('hist').innerHTML=align.changes.map(c=>`<div class="${c.label==='BUY'?'b':c.label==='SELL'?'s':'n'}">${new Date(c.t).toLocaleTimeString()}  ${c.label.padEnd(5)} ${c.why}  15s ${fmtS(c.score)}</div>`).join('')}
-  else{$('hist').classList.add('muted');$('hist').textContent='None yet.'}
-  drawSpark(p);
-  $('overallStatus').textContent=`Bookmap: ${book.stream?'shared':'not shared'} • ${monitoring?'Monitoring':'Paused'} • capture ${p.every} ms • detail ${tfName(p.tf)} • alignment ${p.alignMode} • voice ${p.voice?'on':'off'} • liquidity read as ${p.liqMode==='magnet'?'magnet':'support/resistance'} • YouTube delay not removable`}
-
-/* ---------- Control ---------- */
-function stopMonitor(){monitoring=false;if(book.task){clearInterval(book.task);book.task=0}if(tickWorker)tickWorker.postMessage(0);render()}
-let tickWorker=null,lastTick=0,gapWarnAt=0,maxGap=0;
-function onTick(){const t=now(),every=P().every;if(lastTick){const gap=t-lastTick;maxGap=Math.max(maxGap*.98,gap);
-    if(gap>Math.max(3*every,1500)&&t-gapWarnAt>10000){gapWarnAt=t;log(`Sampling gap ${(gap/1000).toFixed(1)}s (expected ${every}ms). The browser throttled this tab. Keep the monitor in its own visible window.`)}}
-  lastTick=t;if(monitoring)sample()}
-function schedule(){const every=P().every;clearInterval(book.task);book.task=0;lastTick=0;
-  try{if(!tickWorker){const src='let id=0;onmessage=e=>{clearInterval(id);if(e.data>0)id=setInterval(()=>postMessage(1),e.data)}';
-      tickWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));tickWorker.onmessage=onTick}
-    tickWorker.postMessage(every)}
-  catch(e){log('Worker timer unavailable ('+e.message+'); using page timer. Background tabs may be throttled.');book.task=setInterval(onTick,every)}}
-$('start').onclick=()=>{if(!book.stream||!book.roi){log('Share Bookmap and select the NQ region first');return}
-  if(P().voice&&'speechSynthesis' in window){try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}
-  resetBook(true);monitoring=true;schedule();sample();const p=P();
-  log(`Started: capture ${p.every}ms, alignment ${p.alignMode}, confirm ${p.alignConfirm}, cooldown ${p.cooldown/1000}s, voice ${p.voice?'on':'off'}, weights B${p.wB}/D${p.wD}/L${p.wL}/S${p.wS}, liq ${p.liqMode}/${p.heatModel}, strip ${Math.round(p.liqStrip*100)}%, range ±${Math.round(p.liqRange*100)}%, enter ${p.enter}/exit ${p.exit}, confirm ${p.confirm}`);render()};
-$('pause').onclick=()=>{stopMonitor();log('Monitoring paused')};
-$('resetBtn').onclick=()=>{resetBook(false);log('History reset');render()};
-$('pEvery').onchange=()=>{if(monitoring)schedule();log('Capture rate → '+P().every+' ms')};
-$('pTf').onchange=()=>{log('Detail interval → '+tfName(P().tf));render()};
-$('testVoice').onclick=()=>{const p=P();if(!('speechSynthesis' in window)){log('This browser has no speech synthesis');return}const v=p.voice;p.voice=true;speak(p.buyText,p);setTimeout(()=>speak(p.sellText,p),900);p.voice=v;log('Voice test played')};
-$('simBuy').onclick=()=>{const p=P();log(`Simulated BUY → speaking "${p.buyText}"${p.voice?'':' (voice checkbox is OFF, so forcing it for this test)'}`);speak(p.buyText,p,true);render()};
-$('simSell').onclick=()=>{const p=P();log(`Simulated SELL → speaking "${p.sellText}"${p.voice?'':' (voice checkbox is OFF, so forcing it for this test)'}`);speak(p.sellText,p,true);render()};
-document.addEventListener('visibilitychange',()=>log(document.hidden?'Monitor tab hidden. If sampling gaps appear, move the monitor into its own window.':'Monitor tab visible'));
-$('pTrigger').onchange=()=>log('Alert trigger → '+$('pTrigger').value);
-$('pVoice').onchange=()=>log('Voice → '+($('pVoice').checked?'on':'off'));
-document.querySelectorAll('.params input,.params select').forEach(e=>{if(e.id!=='pEvery')e.addEventListener('change',()=>{log(`Param ${e.id} → ${e.type==='checkbox'?e.checked:e.value}`);render()})});
-$('csv').onclick=()=>{const head=['timestamp_utc','green_new_px','red_new_px','video_motion','edge_centroid_y','price_ref_y','liq_imbalance_now','bid_liq','ask_liq','bid_wall_dist','ask_wall_dist'];
-  for(const tf of TFS)head.push(`s${tf}_score`,`s${tf}_bias`,`s${tf}_drift`,`s${tf}_liq`,`s${tf}_stack`,`s${tf}_conf`,`s${tf}_label`);head.push("trend_1m_dir","trend_5m_dir","alignment_signal","alignment_votes","st_dir","st_line","st_block");
-  const data=[head,...logRows].map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n'),blob=new Blob([data],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='nq-bookmap-v11.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-window.addEventListener('beforeunload',()=>{stopMonitor();if(book.stream)for(const t of book.stream.getTracks())t.stop();cancelAnimationFrame(raf)});
-setInterval(render,1000);render();
-})();
-</script>
-</body>
-</html>
