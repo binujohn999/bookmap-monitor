@@ -1,722 +1,213 @@
-#region Using declarations
-using System;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using NinjaTrader.Cbi;
-using NinjaTrader.Data;
-using NinjaTrader.NinjaScript;
-using NinjaTrader.NinjaScript.Indicators;
-#endregion
-
-namespace NinjaTrader.NinjaScript.Strategies
-{
-    public class STARNET_MNQ_V2 : Strategy
-    {
-        // STARNET: three-agent MNQ entries; escalating reversal quantity.
-        // Default cycle: 1 MNQ -> 2 MNQ -> 3 MNQ.
-        // Trigger is TOTAL open PnL +/- $50 (not per contract).
-        // Stops: $100 PER contract. Final leg target: $50 PER contract.
-        // On every reversed leg, close at >= $100 TOTAL floating PnL.
-        // Reversed legs reverse again ONLY at -$50 TOTAL floating PnL.
-        // Read-only Sim101/Playback testing strongly recommended.
-
-        private const string InitialLong = "STARNET_LONG";
-        private const string InitialShort = "STARNET_SHORT";
-        private const string ReverseLong = "STARNET_REV_LONG";
-        private const string ReverseShort = "STARNET_REV_SHORT";
-        private const string ReverseExit = "STARNET_REVERSE_EXIT";
-        private const string ReverseProfitExit = "STARNET_REVERSE_PROFIT_EXIT";
-        private const string DailyExit = "STARNET_DAILY_EXIT";
-        private const string SessionExit = "STARNET_SESSION_EXIT";
-
-        private enum CyclePhase
-        {
-            Flat,
-            EntryPending,
-            PositionOpen,
-            ReversalExitPending,
-            ReverseReady,
-            SafetyExitPending
-        }
-
-        private EMA ema20;
-        private EMA ema50;
-        private ADX adx14;
-        private CyclePhase phase;
-        private MarketPosition nextSide;
-        private string activeEntrySignal;
-        private int expectedEntryQty;
-        private int reversalCount;
-        private int entriesToday;
-        private int lastEntryBar;
-        private int lastSignalLogBar;
-        private DateTime activeDate;
-        private DateTime lastEntryBarTime;
-        private DateTime lastHeartbeat;
-        private double dayStartingRealized;
-        private bool dailyLocked;
-        private bool startupBlocked;
-        private bool exitRequested;
-        private string blockReason;
-
-        #region Configurable parameters
-        [NinjaScriptProperty]
-        [Range(1, 10)]
-        [Display(Name="Initial MNQ Contracts", GroupName="01 Orders", Order=1)]
-        public int InitialContracts { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10)]
-        [Display(Name="Maximum MNQ Contracts", GroupName="01 Orders", Order=2)]
-        public int MaxContracts { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(0, 9)]
-        [Display(Name="Maximum Reversals Per Cycle", GroupName="01 Orders", Order=3)]
-        public int MaxReversalsPerCycle { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10000)]
-        [Display(Name="Stop Loss Per Contract ($)", GroupName="01 Orders", Order=4)]
-        public double StopLossDollars { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10000)]
-        [Display(Name="Initial Profit Target Per Contract ($)", GroupName="01 Orders", Order=5)]
-        public double ProfitTargetDollars { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10000)]
-        [Display(Name="Reverse At Total Profit ($)", GroupName="01 Orders", Order=6)]
-        public double ReverseAtProfitDollars { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10000)]
-        [Display(Name="Reverse At Total Loss ($)", GroupName="01 Orders", Order=7)]
-        public double ReverseAtLossDollars { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10000)]
-        [Display(Name="Final Leg Profit Target Per Contract ($)", GroupName="01 Orders", Order=8)]
-        public double ReverseTargetDollars { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 100000)]
-        [Display(Name="Reversed Leg Floating Profit Exit ($ TOTAL)", GroupName="01 Orders", Order=9)]
-        public double ReversedLegProfitExitDollars { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 100000)]
-        [Display(Name="Daily Profit Threshold ($)", GroupName="02 Risk", Order=1)]
-        public double DailyProfitLimit { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 100000)]
-        [Display(Name="Daily Loss Limit ($)", GroupName="02 Risk", Order=2)]
-        public double DailyLossLimit { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 100)]
-        [Display(Name="Maximum Entries Per Day", GroupName="02 Risk", Order=3)]
-        public int MaxTradesPerDay { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(0, 3600)]
-        [Display(Name="Cooldown Seconds", GroupName="02 Risk", Order=4)]
-        public int CooldownSeconds { get; set; }
-
-        [NinjaScriptProperty]
-        [Display(Name="Start Time HHmmss (Chart Time)", GroupName="03 Session", Order=1)]
-        public int StartTime { get; set; }
-
-        [NinjaScriptProperty]
-        [Display(Name="End Time HHmmss (Chart Time)", GroupName="03 Session", Order=2)]
-        public int EndTime { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(5, 100)]
-        [Display(Name="Minimum ADX", GroupName="04 Agents", Order=1)]
-        public double MinimumADX { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(2, 20)]
-        [Display(Name="Structure Lookback", GroupName="04 Agents", Order=2)]
-        public int StructureLookback { get; set; }
-
-        [NinjaScriptProperty]
-        [Display(Name="Require Previous Candle Color", GroupName="04 Agents", Order=3)]
-        public bool RequirePreviousColor { get; set; }
-
-        [NinjaScriptProperty]
-        [Display(Name="Enable Agent Logging", GroupName="05 Diagnostics", Order=1)]
-        public bool EnableLogging { get; set; }
-
-        [NinjaScriptProperty]
-        [Display(Name="Process Historical Entries (Backtest Only)", GroupName="05 Diagnostics", Order=2)]
-        public bool ProcessHistoricalEntries { get; set; }
-        #endregion
-
-        protected override void OnStateChange()
-        {
-            if (State == State.SetDefaults)
-            {
-                Name = "STARNET_MNQ_V2";
-                Description = "3-agent MNQ: +1 contract per reversal; reversed legs exit at +$100 total profit.";
-                Calculate = Calculate.OnEachTick;
-                BarsRequiredToTrade = 60;
-                EntriesPerDirection = 1;
-                EntryHandling = EntryHandling.AllEntries;
-                StopTargetHandling = StopTargetHandling.PerEntryExecution;
-                StartBehavior = StartBehavior.WaitUntilFlat;
-                RealtimeErrorHandling = RealtimeErrorHandling.StopCancelClose;
-                IsExitOnSessionCloseStrategy = true;
-                ExitOnSessionCloseSeconds = 30;
-                TimeInForce = TimeInForce.Day;
-                IsInstantiatedOnEachOptimizationIteration = true;
-
-                InitialContracts = 1;
-                MaxContracts = 3;
-                MaxReversalsPerCycle = 2;
-                StopLossDollars = 100;
-                ProfitTargetDollars = 100;
-                ReverseAtProfitDollars = 50;
-                ReverseAtLossDollars = 50;
-                ReverseTargetDollars = 50;
-                ReversedLegProfitExitDollars = 100;
-                DailyProfitLimit = 500;
-                DailyLossLimit = 300;
-                MaxTradesPerDay = 10;
-                CooldownSeconds = 30;
-                StartTime = 83500;
-                EndTime = 150000;
-                MinimumADX = 20;
-                StructureLookback = 3;
-                RequirePreviousColor = false;
-                EnableLogging = true;
-                ProcessHistoricalEntries = false;
-            }
-            else if (State == State.Configure)
-            {
-                // Set protection BEFORE each entry. Ticks mode preserves
-                // $100 risk PER MNQ contract as quantities increase.
-                int stopTicks = DollarsToTicksPerContract(StopLossDollars);
-                int initialTarget = DollarsToTicksPerContract(ProfitTargetDollars);
-                SetStopLoss(InitialLong, CalculationMode.Ticks, stopTicks, false);
-                SetProfitTarget(InitialLong, CalculationMode.Ticks, initialTarget);
-                SetStopLoss(InitialShort, CalculationMode.Ticks, stopTicks, false);
-                SetProfitTarget(InitialShort, CalculationMode.Ticks, initialTarget);
-                SetStopLoss(ReverseLong, CalculationMode.Ticks, stopTicks, false);
-                SetStopLoss(ReverseShort, CalculationMode.Ticks, stopTicks, false);
-                // Targets for the reversed signals are assigned dynamically
-                // in SubmitEntry() BEFORE each reversed entry is placed.
-            }
-            else if (State == State.DataLoaded)
-            {
-                ema20 = EMA(20);
-                ema50 = EMA(50);
-                adx14 = ADX(14);
-                AddChartIndicator(ema20);
-                AddChartIndicator(ema50);
-                phase = CyclePhase.Flat;
-                nextSide = MarketPosition.Flat;
-                activeEntrySignal = "";
-                expectedEntryQty = 0;
-                reversalCount = 0;
-                entriesToday = 0;
-                lastEntryBar = -1;
-                lastSignalLogBar = -1;
-                activeDate = DateTime.MinValue;
-                lastEntryBarTime = DateTime.MinValue;
-                lastHeartbeat = DateTime.MinValue;
-                dayStartingRealized = 0;
-                dailyLocked = false;
-                startupBlocked = false;
-                exitRequested = false;
-                blockReason = "";
-                Print("STARNET | DATA LOADED | Instrument=" + Instrument.FullName +
-                      " | HistoricalEntries=" + ProcessHistoricalEntries);
-            }
-            else if (State == State.Realtime)
-            {
-                // Historical simulated fills must never carry a pending
-                // reversal into a fresh live-only Sim101 run.
-                if (!ProcessHistoricalEntries &&
-                    Position.MarketPosition == MarketPosition.Flat &&
-                    AccountIsFlat())
-                {
-                    ResetCycle();
-                    startupBlocked = false;
-                    blockReason = "";
-                }
-                else if (phase != CyclePhase.Flat ||
-                         Position.MarketPosition != MarketPosition.Flat ||
-                         !AccountIsFlat())
-                {
-                    startupBlocked = true;
-                    blockReason = "STARTUP_POSITION_OR_PENDING_STATE";
-                }
-
-                Print("STARNET | REALTIME START | Phase=" + phase +
-                      " | Strategy=" + Position.MarketPosition +
-                      " | AccountFlat=" + AccountIsFlat() +
-                      " | HistoricalEntries=" + ProcessHistoricalEntries +
-                      " | Block=" + (startupBlocked ? blockReason : "NONE") +
-                      " | WaitUntilFlat=" + IsWaitUntilFlat);
-            }
-        }
-
-        private int DollarsToTicksPerContract(double dollars)
-        {
-            // One MNQ tick is $0.50. Fail closed if attached to a
-            // different instrument (checked again in OnBarUpdate).
-            return Math.Max(1, (int)Math.Round(dollars / 0.50,
-                MidpointRounding.AwayFromZero));
-        }
-
-        private bool AccountIsFlat()
-        {
-            // An account position is meaningful in real-time only;
-            // Strategy Analyzer uses synthetic strategy positions.
-            if (State != State.Realtime)
-                return true;
-            return PositionAccount != null &&
-                   PositionAccount.MarketPosition == MarketPosition.Flat;
-        }
-
-        private void ResetCycle()
-        {
-            phase = CyclePhase.Flat;
-            nextSide = MarketPosition.Flat;
-            activeEntrySignal = "";
-            expectedEntryQty = 0;
-            reversalCount = 0;
-            exitRequested = false;
-        }
-
-        private double RealizedPnL()
-        {
-            return SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit;
-        }
-
-        private bool CanReverse()
-        {
-            return reversalCount < MaxReversalsPerCycle &&
-                   expectedEntryQty < MaxContracts &&
-                   entriesToday < MaxTradesPerDay &&
-                   !dailyLocked;
-        }
-
-        protected override void OnBarUpdate()
-        {
-            if (BarsInProgress != 0)
-                return;
-
-            if (State == State.Realtime)
-                Heartbeat();
-
-            if (State == State.Historical && !ProcessHistoricalEntries)
-                return;
-
-            if (CurrentBar < Math.Max(BarsRequiredToTrade,
-                                      StructureLookback + 5))
-                return;
-
-            if (Instrument.MasterInstrument.Name != "MNQ" || startupBlocked)
-                return;
-
-            if (activeDate != Time[0].Date)
-            {
-                activeDate = Time[0].Date;
-                dayStartingRealized = RealizedPnL();
-                dailyLocked = false;
-                entriesToday = 0;
-                lastEntryBar = -1;
-                lastEntryBarTime = DateTime.MinValue;
-                lastSignalLogBar = -1;
-                WriteLog("NEW DAY | Baseline reset");
-            }
-
-            int chartClock = ToTime(Time[0]);
-            double realized = RealizedPnL() - dayStartingRealized;
-            double unrealized = Position.MarketPosition == MarketPosition.Flat
-                ? 0 : Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
-            double combined = realized + unrealized;
-
-            if (!dailyLocked &&
-                (combined >= DailyProfitLimit || combined <= -DailyLossLimit))
-            {
-                dailyLocked = true;
-                WriteLog("DAILY RISK LOCK | Combined=" + combined.ToString("F2"));
-            }
-
-            if (dailyLocked || chartClock >= EndTime)
-            {
-                if (phase == CyclePhase.ReverseReady)
-                    ResetCycle();
-                RequestSafetyExit(dailyLocked ? DailyExit : SessionExit);
-                return;
-            }
-
-            if (chartClock < StartTime || (State == State.Realtime && IsWaitUntilFlat))
-                return;
-
-            if (phase == CyclePhase.ReverseReady)
-            {
-                if (Position.MarketPosition != MarketPosition.Flat || !AccountIsFlat())
-                    return;
-                if (entriesToday >= MaxTradesPerDay ||
-                    reversalCount >= MaxReversalsPerCycle ||
-                    expectedEntryQty >= MaxContracts)
-                {
-                    WriteLog("PENDING REVERSE CANCELLED | Safety cap");
-                    ResetCycle();
-                    return;
-                }
-                SubmitEntry(nextSide, Math.Min(expectedEntryQty + 1, MaxContracts), true);
-                return;
-            }
-
-            if (Position.MarketPosition != MarketPosition.Flat)
-            {
-                // Do not act on partially filled entries or while an
-                // exit is working. Exit/reverse decisions are exclusive.
-                if (phase == CyclePhase.PositionOpen &&
-                    Position.Quantity == expectedEntryQty &&
-                    !exitRequested)
-                {
-                    if (reversalCount > 0)
-                    {
-                        // Once any reversal has occurred, prioritize closing
-                        // at +$100 TOTAL floating PnL instead of reversing
-                        // again at +$50. This is across ALL open contracts.
-                        if (unrealized >= ReversedLegProfitExitDollars)
-                        {
-                            RequestReversedProfitExit(unrealized);
-                        }
-                        // A reversed leg may still reverse with +1 MNQ on
-                        // a -$50 TOTAL loss, subject to cycle caps.
-                        else if (unrealized <= -ReverseAtLossDollars &&
-                                 CanReverse())
-                        {
-                            RequestReversal(unrealized);
-                        }
-                    }
-                    else if (CanReverse() &&
-                             (unrealized >= ReverseAtProfitDollars ||
-                              unrealized <= -ReverseAtLossDollars))
-                    {
-                        // Original 1-MNQ leg: +/-$50 causes first reversal.
-                        RequestReversal(unrealized);
-                    }
-                }
-                return;
-            }
-
-            if (phase != CyclePhase.Flat || exitRequested ||
-                (State == State.Realtime && !AccountIsFlat()))
-                return;
-
-            int oracle = OracleSignal();
-            int strategist = StrategistSignal();
-            int liquidity = LiquiditySignal();
-
-            string gate = "OPEN";
-            if (entriesToday >= MaxTradesPerDay)
-                gate = "MAX_DAILY_ENTRIES";
-            else if (lastEntryBar == CurrentBar)
-                gate = "SAME_BAR";
-            else if (lastEntryBarTime != DateTime.MinValue &&
-                     (Time[0] - lastEntryBarTime).TotalSeconds < CooldownSeconds)
-                gate = "COOLDOWN";
-
-            if (EnableLogging && lastSignalLogBar != CurrentBar)
-            {
-                lastSignalLogBar = CurrentBar;
-                WriteLog("AGENTS | O=" + oracle + " S=" + strategist +
-                    " L=" + liquidity + " ADX=" + adx14[0].ToString("F1") +
-                    " Gate=" + gate + " PnL=" + combined.ToString("F2"));
-            }
-
-            if (gate != "OPEN")
-                return;
-
-            if (oracle == 1 && strategist == 1 && liquidity == 1)
-                SubmitEntry(MarketPosition.Long, InitialContracts, false);
-            else if (oracle == -1 && strategist == -1 && liquidity == -1)
-                SubmitEntry(MarketPosition.Short, InitialContracts, false);
-        }
-
-        private int OracleSignal()
-        {
-            if (adx14[0] < MinimumADX) return 0;
-            if (ema20[0] > ema50[0] && Close[0] > ema20[0]) return 1;
-            if (ema20[0] < ema50[0] && Close[0] < ema20[0]) return -1;
-            return 0;
-        }
-
-        private int StrategistSignal()
-        {
-            if ((!RequirePreviousColor || Close[1] > Open[1]) &&
-                Close[0] > High[1]) return 1;
-            if ((!RequirePreviousColor || Close[1] < Open[1]) &&
-                Close[0] < Low[1]) return -1;
-            return 0;
-        }
-
-        private int LiquiditySignal()
-        {
-            double high = MAX(High, StructureLookback)[1];
-            double low = MIN(Low, StructureLookback)[1];
-            bool bullBreak = Close[0] > high;
-            bool bearBreak = Close[0] < low;
-            bool bull = bullBreak || (High[1] > High[2] && Low[1] >= Low[2]);
-            bool bear = bearBreak || (Low[1] < Low[2] && High[1] <= High[2]);
-            if (bull && !bear) return 1;
-            if (bear && !bull) return -1;
-            if (bullBreak && !bearBreak) return 1;
-            if (bearBreak && !bullBreak) return -1;
-            return 0;
-        }
-
-        private void SubmitEntry(MarketPosition side, int qty, bool reversing)
-        {
-            if (dailyLocked || startupBlocked || qty < 1 || qty > MaxContracts)
-                return;
-            if (Position.MarketPosition != MarketPosition.Flat ||
-                (State == State.Realtime && !AccountIsFlat()))
-                return;
-            if (phase != (reversing ? CyclePhase.ReverseReady : CyclePhase.Flat))
-                return;
-
-            string signal = reversing
-                ? (side == MarketPosition.Long ? ReverseLong : ReverseShort)
-                : (side == MarketPosition.Long ? InitialLong : InitialShort);
-
-            if (reversing)
-            {
-                // We have completed one more reversal on submission.
-                reversalCount++;
-
-                // For intermediate legs keep the ordinary $100 per-contract
-                // profit target beyond the +/-$50 reversal trigger.
-                // On FINAL leg use the requested $50 PER CONTRACT target.
-                bool finalLeg = reversalCount >= MaxReversalsPerCycle ||
-                                qty >= MaxContracts ||
-                                entriesToday + 1 >= MaxTradesPerDay;
-                int ticks = finalLeg
-                    ? DollarsToTicksPerContract(ReverseTargetDollars)
-                    : DollarsToTicksPerContract(ProfitTargetDollars);
-                SetProfitTarget(signal, CalculationMode.Ticks, ticks);
-            }
-            else
-            {
-                reversalCount = 0;
-            }
-
-            phase = CyclePhase.EntryPending;
-            nextSide = MarketPosition.Flat;
-            expectedEntryQty = qty;
-            activeEntrySignal = signal;
-            entriesToday++;
-            lastEntryBar = CurrentBar;
-            lastEntryBarTime = Time[0];
-
-            WriteLog("COMMANDER " + (reversing ? "REVERSE" : "INITIAL") +
-                " | " + side + " | Qty=" + qty +
-                " | Reversals=" + reversalCount +
-                " | Stop=$" + StopLossDollars + "/contract");
-
-            if (side == MarketPosition.Long)
-                EnterLong(qty, signal);
-            else
-                EnterShort(qty, signal);
-        }
-
-        private void RequestReversal(double openPnL)
-        {
-            if (phase != CyclePhase.PositionOpen || exitRequested || !CanReverse())
-                return;
-
-            nextSide = Position.MarketPosition == MarketPosition.Long
-                ? MarketPosition.Short : MarketPosition.Long;
-            phase = CyclePhase.ReversalExitPending;
-            exitRequested = true;
-            WriteLog("REVERSAL TRIGGER | OpenPnL=$" + openPnL.ToString("F2") +
-                " | Close Qty=" + Position.Quantity +
-                " | Next Qty=" + (expectedEntryQty + 1) +
-                " | NextSide=" + nextSide);
-
-            if (Position.MarketPosition == MarketPosition.Long)
-                ExitLong(ReverseExit, activeEntrySignal);
-            else
-                ExitShort(ReverseExit, activeEntrySignal);
-        }
-
-        private void RequestReversedProfitExit(double openPnL)
-        {
-            if (reversalCount <= 0 || phase != CyclePhase.PositionOpen ||
-                exitRequested || Position.MarketPosition == MarketPosition.Flat ||
-                string.IsNullOrEmpty(activeEntrySignal))
-                return;
-
-            exitRequested = true;
-            phase = CyclePhase.SafetyExitPending;
-            WriteLog("REVERSED PROFIT EXIT | Floating=$" + openPnL.ToString("F2") +
-                " | Threshold=$" + ReversedLegProfitExitDollars.ToString("F2") +
-                " TOTAL | Qty=" + Position.Quantity + " | No further reversal");
-
-            if (Position.MarketPosition == MarketPosition.Long)
-                ExitLong(ReverseProfitExit, activeEntrySignal);
-            else
-                ExitShort(ReverseProfitExit, activeEntrySignal);
-        }
-
-        private void RequestSafetyExit(string exitName)
-        {
-            if (Position.MarketPosition == MarketPosition.Flat || exitRequested ||
-                phase == CyclePhase.ReversalExitPending ||
-                string.IsNullOrEmpty(activeEntrySignal))
-                return;
-            exitRequested = true;
-            phase = CyclePhase.SafetyExitPending;
-            WriteLog("SAFETY EXIT | " + exitName);
-            if (Position.MarketPosition == MarketPosition.Long)
-                ExitLong(exitName, activeEntrySignal);
-            else
-                ExitShort(exitName, activeEntrySignal);
-        }
-
-        protected override void OnExecutionUpdate(
-            Execution execution, string executionId, double price, int quantity,
-            MarketPosition marketPosition, string orderId, DateTime time)
-        {
-            if (execution == null)
-                return;
-            string name = execution.Name;
-
-            if (name == InitialLong || name == InitialShort ||
-                name == ReverseLong || name == ReverseShort)
-            {
-                activeEntrySignal = name;
-                // A reversal must not start until the requested quantity
-                // has filled. Partial fills remain EntryPending.
-                if (Position.Quantity >= expectedEntryQty &&
-                    Position.MarketPosition != MarketPosition.Flat)
-                    phase = CyclePhase.PositionOpen;
-                WriteLog("ENTRY FILL | " + name + " Qty=" + quantity +
-                         " StrategyQty=" + Position.Quantity +
-                         " Expected=" + expectedEntryQty +
-                         " Price=" + price.ToString("F2"));
-                return;
-            }
-
-            if (name == ReverseExit)
-            {
-                WriteLog("REVERSAL EXIT FILL | Qty=" + quantity +
-                         " Remaining=" + Position.Quantity);
-                if (Position.MarketPosition == MarketPosition.Flat)
-                {
-                    exitRequested = false;
-                    activeEntrySignal = "";
-                    phase = CyclePhase.ReverseReady;
-                    if (dailyLocked)
-                        ResetCycle();
-                }
-                return;
-            }
-
-            WriteLog("EXIT FILL | " + name + " Qty=" + quantity +
-                     " Remaining=" + Position.Quantity);
-            if (Position.MarketPosition == MarketPosition.Flat)
-                ResetCycle();
-        }
-
-        protected override void OnOrderUpdate(
-            Order order, double limitPrice, double stopPrice, int quantity,
-            int filled, double averageFillPrice, OrderState orderState,
-            DateTime time, ErrorCode error, string comment)
-        {
-            if (order == null)
-                return;
-            string name = order.Name;
-            bool isEntry = name == InitialLong || name == InitialShort ||
-                           name == ReverseLong || name == ReverseShort;
-
-            if (orderState == OrderState.Rejected)
-            {
-                startupBlocked = true;
-                blockReason = "ORDER_REJECTED_" + name;
-                Print("STARNET ERROR | REJECTED | " + name +
-                      " | " + error + " | " + comment +
-                      " | Inspect account/orders; do not auto-resume.");
-                return;
-            }
-
-            if (orderState == OrderState.Cancelled)
-            {
-                if (isEntry && phase == CyclePhase.EntryPending)
-                {
-                    if (filled == 0 && Position.MarketPosition == MarketPosition.Flat)
-                        ResetCycle();
-                    else
-                    {
-                        startupBlocked = true;
-                        blockReason = "PARTIAL_ENTRY_CANCELLED";
-                        Print("STARNET ERROR | PARTIAL ENTRY CANCELLED | " + name +
-                              " | Check remaining position and protective orders.");
-                    }
-                }
-                else if (name == ReverseExit &&
-                         phase == CyclePhase.ReversalExitPending)
-                {
-                    startupBlocked = true;
-                    blockReason = "REVERSE_EXIT_CANCELLED";
-                    Print("STARNET ERROR | REVERSE EXIT CANCELLED | Check position and orders.");
-                }
-                else if ((name == DailyExit || name == SessionExit || name == ReverseProfitExit) &&
-                         phase == CyclePhase.SafetyExitPending)
-                {
-                    exitRequested = false;
-                    phase = CyclePhase.PositionOpen;
-                    Print("STARNET WARNING | SAFETY/PROFIT EXIT CANCELLED | " + name);
-                }
-            }
-        }
-
-        private void Heartbeat()
-        {
-            DateTime now = Core.Globals.Now;
-            if (lastHeartbeat != DateTime.MinValue &&
-                (now - lastHeartbeat).TotalSeconds < 60)
-                return;
-            lastHeartbeat = now;
-            string gate = "READY_CHECK_AGENTS";
-            if (startupBlocked) gate = blockReason;
-            else if (CurrentBar < BarsRequiredToTrade) gate = "NOT_ENOUGH_BARS";
-            else if (ToTime(Time[0]) < StartTime) gate = "BEFORE_START";
-            else if (ToTime(Time[0]) >= EndTime) gate = "AFTER_END";
-            else if (dailyLocked) gate = "DAILY_LOCK";
-            else if (IsWaitUntilFlat) gate = "WAIT_UNTIL_FLAT";
-            else if (phase != CyclePhase.Flat) gate = "PHASE_" + phase;
-            Print("STARNET DIAG | Bar=" +
-                (CurrentBar >= 0 ? Time[0].ToString("yyyy-MM-dd HH:mm:ss") : "NONE") +
-                " | Phase=" + phase +
-                " | StrategyPos=" + Position.MarketPosition +
-                " Qty=" + Position.Quantity +
-                " | AccountFlat=" + AccountIsFlat() +
-                " | Reversals=" + reversalCount +
-                " | EntriesToday=" + entriesToday +
-                " | Gate=" + gate);
-        }
-
-        private void WriteLog(string message)
-        {
-            if (!EnableLogging)
-                return;
-            string timestamp = CurrentBar >= 0
-                ? Time[0].ToString("yyyy-MM-dd HH:mm:ss")
-                : Core.Globals.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            Print(timestamp + " | STARNET V2 | " + message);
-        }
-    }
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NQ Dual-Source Monitor V5 — Bookmap + TradingView</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:#0b1322;color:#e8f1ff;--card:#14233b;--stroke:#304b6b;--muted:#a4bbd5;--blue:#4285f4;--green:#55ddb0;--red:#ff7e95;--amber:#ffda8b}
+*{box-sizing:border-box}body{margin:0}header{padding:22px max(20px,calc((100vw - 1430px)/2));background:#121f34;border-bottom:1px solid var(--stroke)}h1{margin:0 0 6px;font-size:clamp(21px,2.5vw,28px)}h2{margin:0 0 10px;font-size:19px}h3{margin:0 0 9px;font-size:15px}p{margin:8px 0;line-height:1.5}.muted{color:var(--muted);font-size:13px}.shell{max-width:1430px;margin:0 auto;padding:16px 18px 32px}.warn{border:1px solid #967142;background:#332a1e;color:#ffe4ae;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5}.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:15px;margin-top:14px}.sources{display:grid;grid-template-columns:1fr 1fr;gap:13px}.panel{background:var(--card);border:1px solid var(--stroke);padding:15px;border-radius:12px}.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:9px 0}.row.stretch{justify-content:space-between}button,input,select{font:inherit}button{background:var(--blue);color:white;border:0;border-radius:8px;padding:10px 12px;font-weight:650;font-size:13px;cursor:pointer}button.secondary{background:#2c4565}button.success{background:#167b62}button:disabled{opacity:.43;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #8ec2ff;outline-offset:2px}select,input{border-radius:7px;background:#253b58;border:1px solid #48627e;color:white;padding:8px;font-size:13px}input[type=number]{width:140px;max-width:100%}label{font-size:13px;color:#cfe0f4}a{color:#abd0ff}.viewer{border:1px solid #45607f;border-radius:9px;overflow:hidden;background:#060d17}.viewer canvas{width:100%;height:auto;display:block;cursor:crosshair;touch-action:none}.subheading{font-size:12px;color:var(--muted);margin:8px 0;min-height:28px}.small{font-size:12px}.state{font-size:13px;color:#cfdeef;line-height:1.5}.tag{display:inline-block;background:#334963;color:#c5dfff;padding:4px 9px;border-radius:30px;font-size:11px}.tag.ok{color:#b4f4dc;background:#1f5a49}.tag.bad{color:#ffe1aa;background:#644127}.signal{font-size:36px;font-weight:850;letter-spacing:.8px;color:#c5d4e9}.signal.bull{color:var(--green)}.signal.bear{color:var(--red)}.signal.neutral{color:var(--amber)}.price{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:4px 0}.kvs{display:grid;grid-template-columns:minmax(115px,1fr) auto;gap:9px 12px;font-size:13px;margin:14px 0}.kvs strong{text-align:right;font-variant-numeric:tabular-nums;max-width:210px}.rule{border:0;border-top:1px solid var(--stroke);margin:16px 0}.meter{height:13px;border-radius:9px;overflow:hidden;background:#293e58;display:flex}.meter span:first-child{background:#4fd3a4}.meter span:last-child{background:#db697c}.twin{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:5px 0 13px}.crop{max-width:100%;width:100%;height:70px;object-fit:contain;background:#060d15;border:1px solid #3f5771;border-radius:7px}.error{color:#ffb6ae}.help{border:1px solid #314962;background:#101d31;border-radius:9px;padding:11px;font-size:12px;line-height:1.55;margin-top:10px}.log{font:12px Consolas,monospace;white-space:pre-wrap;max-height:190px;overflow:auto;background:#07111f;border-radius:7px;padding:9px;color:#bcd2ee;margin-top:8px}.footer{margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:14px}ol{margin:7px 0;padding-left:20px;line-height:1.75}.focus{font-size:15px;color:#c9e1ff}.full{grid-column:1/-1}@media(max-width:1100px){.grid{grid-template-columns:1fr}}@media(max-width:670px){.sources,.footer{grid-template-columns:1fr}.shell{padding:12px}.signal{font-size:30px}.price{font-size:28px}}
+</style>
+</head>
+<body>
+<header><h1>NQ Dual-Source Monitor <span style="color:#85b7ff">V5</span></h1><p class="muted">One market: NQ • Bookmap visual activity + TradingView on-screen price • two independently shared tabs/windows • no ES</p></header>
+<div class="shell">
+<div class="warn"><strong>Experimental visual monitor—not a live order-flow feed or a trading predictor.</strong> A YouTube Bookmap stream can be delayed compared with TradingView, so the two sources may describe different moments. Color-change counts do not measure genuine buy/sell execution volume. TradingView price is read from pixels using OCR and can be wrong, delayed, or for a different contract. Treat BULLISH/BEARISH as <strong>unvalidated observations, not trade signals</strong>.</div>
+<div class="grid">
+<div>
+  <div class="sources">
+    <section class="panel" aria-label="Bookmap video capture">
+      <h2>1. Bookmap — NQ only</h2>
+      <p class="muted">Share the YouTube/Bookmap tab or window. Drag a region around <strong>NQ heatmap trade bubbles</strong>, excluding price ladder, volume bars and ES.</p>
+      <div class="row"><button id="bookShare">Share Bookmap</button><button id="bookStop" class="secondary" disabled>Stop</button><button id="bookPreset" class="secondary" disabled>NQ preset</button></div>
+      <div id="bookStatus" class="subheading">Not sharing</div>
+      <div class="viewer"><canvas id="bookCanvas" width="840" height="473" aria-label="Bookmap video preview; drag to select NQ area"></canvas></div>
+      <p class="subheading">Blue rectangle = NQ trade-bubble region. Drag to redefine. Use theater mode for a larger image.</p>
+    </section>
+    <section class="panel" aria-label="TradingView price capture">
+      <h2>2. TradingView — NQ price</h2>
+      <p class="muted">Share your <strong>TradingView NQ chart</strong> separately. Draw around ONE readable current-price number—preferably a fixed-position quote rather than the moving right-axis label.</p>
+      <div class="row"><button id="tvShare">Share TradingView</button><button id="tvStop" class="secondary" disabled>Stop</button><button id="tvClear" class="secondary">Clear box</button></div>
+      <div id="tvStatus" class="subheading">Not sharing</div>
+      <div class="viewer"><canvas id="tvCanvas" width="840" height="473" aria-label="TradingView preview; drag around a single current-price readout"></canvas></div>
+      <p class="subheading">Orange rectangle = TradingView price OCR box. Move it if the displayed label drifts outside it.</p>
+      <div class="row"><label>OCR image <select id="ocrMode"><option value="normal">Normal</option><option value="high">High contrast</option><option value="invert">Inverted</option></select></label><button id="testPrice" class="secondary" disabled>Test price OCR</button><button id="confirmPrice" class="success" disabled>Confirm detected price</button></div>
+      <div class="row"><label for="manualPrice">Manual fallback</label><input id="manualPrice" type="number" step="0.25" placeholder="e.g. 27960.25" min="0"><button id="useManual" class="secondary">Use once</button></div>
+      <p class="muted">Manual prices are snapshots, not a continuous feed. Re-enter as prices move. OCR requires an internet download of Tesseract.js, then runs in your browser.</p>
+    </section>
+  </div>
+  <section class="panel" style="margin-top:14px">
+    <h2>3. Monitor controls</h2>
+    <div class="row"><button id="start" class="success" disabled>Start NQ monitoring</button><button id="pause" class="secondary" disabled>Pause</button><button id="reset" class="secondary">Reset price track</button><button id="csv" class="secondary">Download CSV</button></div>
+    <div class="row"><label>Bookmap sample <select id="bookEvery"><option value="1000">1 sec</option><option value="2000" selected>2 sec</option><option value="3000">3 sec</option></select></label><label>TradingView OCR <select id="tvEvery"><option value="2500">2.5 sec</option><option value="4000" selected>4 sec</option><option value="6000">6 sec</option></select></label><label>NQ 30s move threshold <input type="number" id="moveThreshold" min="0.25" step="0.25" value="3" style="width:84px"></label></div>
+    <div id="overallStatus" class="state">Share both sources and select the NQ heatmap and TradingView price box.</div>
+    <div class="help"><strong>Browser permissions:</strong> The two Share buttons each open their <em>own</em> Chrome/Edge screen-share picker. Choose the Bookmap tab/window first, then the TradingView tab/window. Do not choose this monitor tab. A static GitHub Pages site cannot silently read TradingView or Bookmap without your consent. <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia" target="_blank" rel="noopener noreferrer">About screen sharing</a>.</div>
+  </section>
+</div>
+<div>
+  <section class="panel">
+    <div class="row stretch" style="margin:0"><h2>NQ 1-minute assessment</h2><span id="quality" class="tag bad">WAITING</span></div>
+    <div id="signal" class="signal">WAIT</div>
+    <p id="reason" class="state">Waiting for both shared sources and selected regions.</p>
+    <hr class="rule">
+    <h3>TradingView current price</h3>
+    <div id="nqPrice" class="price">—</div>
+    <div class="kvs"><span>Price source</span><strong id="priceSource">—</strong><span>OCR confidence</span><strong id="confidence">—</strong><span>Raw OCR reading</span><strong id="rawRead">—</strong><span>Price verified</span><strong id="verified">No</strong><span>30-second movement</span><strong id="priceMove">—</strong><span>Price reading age</span><strong id="priceAge">—</strong></div>
+    <img id="priceCrop" class="crop" alt="Current TradingView OCR crop" />
+    <hr class="rule">
+    <h3>Bookmap NQ video activity</h3>
+    <div class="kvs"><span>Visual activity bias (15s)</span><strong id="book15">—</strong><span>Visual activity bias (60s)</span><strong id="book60">—</strong><span>Video changing</span><strong id="bookMotion">—</strong><span>Observed samples</span><strong id="bookSamples">0</strong></div>
+    <div class="meter"><span id="greenbar" style="width:0%"></span><span id="redbar" style="width:0%"></span></div><div class="twin"><span>Green changed-shape pixels</span><span>Red changed-shape pixels</span></div>
+    <p class="muted">The final label requires sufficient motion, at least ~20 seconds of history, a fresh price, and agreement between the visual color-bias and price movement. Otherwise it displays NEUTRAL or WAIT. Even agreement is not evidence the delayed feeds are synchronized.</p>
+  </section>
+</div>
+</div>
+<div class="footer">
+  <section class="panel"><h2>Setup checklist</h2><ol><li>Open your <a href="https://www.youtube.com/watch?v=m_3VTciU8Yk" target="_blank" rel="noopener noreferrer">Bookmap stream</a>, enlarge the NQ chart and share its tab.</li><li>Click <strong>NQ preset</strong> and adjust the blue area to contain only NQ heatmap bubbles.</li><li>Open TradingView on the <strong>same NQ futures contract</strong> and share that tab or window separately.</li><li>Draw the orange box around one stable live price display; click <strong>Test price OCR</strong>, visually verify it, then <strong>Confirm detected price</strong>.</li><li>Click <strong>Start NQ monitoring</strong>. If OCR fails, manually enter a price as a temporary fallback.</li></ol></section>
+  <section class="panel"><h2>Diagnostics</h2><p class="muted">No uploaded video and no server processing. Captured frames stay in this browser. Tesseract OCR loads from a third-party CDN. Stop sharing independently at any time.</p><div id="log" class="log">Monitor loaded. Waiting for screen sharing.</div></section>
+</div>
+</div>
+<video id="bookVideo" autoplay playsinline muted hidden></video><video id="tvVideo" autoplay playsinline muted hidden></video>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),now=()=>Date.now(),stamp=()=>new Date().toLocaleTimeString();
+const book={stream:null,video:$('bookVideo'),canvas:$('bookCanvas'),ctx:$('bookCanvas').getContext('2d'),roi:null,prev:null,samples:[],lastMotion:0,task:0},
+ tv={stream:null,video:$('tvVideo'),canvas:$('tvCanvas'),ctx:$('tvCanvas').getContext('2d'),roi:null,history:[],last:null,raw:'',confidence:0,source:'',lastAt:0,task:0,busy:false,lastChartHash:null,lastChartChanged:0,verified:false};
+let monitoring=false,raf=0,worker=null,workerPromise=null,logRows=[],drag=null,lastPaint=0;
+const log=msg=>{$('log').textContent=`[${stamp()}] ${msg}\n`+$('log').textContent.slice(0,7000)};
+const roiRect=(a,b)=>({x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)});
+const clamp=(v)=>Math.max(0,Math.min(1,v));
+const coords=(e,canvas)=>{let r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)/r.width),y:clamp((e.clientY-r.top)/r.height)}};
+function resetBook(){book.prev=null;book.samples=[];book.lastMotion=0}
+function resetTV(){tv.history=[];tv.last=null;tv.lastAt=0;tv.confidence=0;tv.source='';tv.raw='';tv.lastChartHash=null;tv.lastChartChanged=now();tv.verified=false}
+function live(v){return v.readyState>=2&&v.videoWidth>0&&v.videoHeight>0}
+function drawRegion(ctx,canvas,r,color,label){if(!r)return;ctx.lineWidth=3;ctx.strokeStyle=color;ctx.strokeRect(r.x*canvas.width,r.y*canvas.height,r.w*canvas.width,r.h*canvas.height);ctx.fillStyle=color;ctx.font='bold 18px Arial';ctx.fillText(label,Math.max(3,r.x*canvas.width+4),Math.max(20,r.y*canvas.height+21))}
+function drawFrame(obj,time){let {canvas,ctx,video,stream,roi}=obj;if(!stream||!live(video)){ctx.fillStyle='#07111f';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#9ebbd9';ctx.font='18px Arial';ctx.fillText('Share a tab or window to see the preview',24,55);return}
+ let w=video.videoWidth,h=video.videoHeight,targetW=840,targetH=Math.round(targetW*h/w);if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH}
+ ctx.drawImage(video,0,0,canvas.width,canvas.height);drawRegion(ctx,canvas,roi,obj===book?'#5aaeff':'#ffcd7c',obj===book?'NQ heatmap':'TV current price');if(drag&&drag.obj===obj){drawRegion(ctx,canvas,roiRect(drag.start,drag.end),'#fff','Selection')}
 }
+function frameLoop(time){if(time-lastPaint>180){lastPaint=time;drawFrame(book,time);drawFrame(tv,time)}raf=requestAnimationFrame(frameLoop)}
+function setupDraw(obj){let c=obj.canvas;
+ c.addEventListener('pointerdown',e=>{if(!obj.stream)return;drag={obj,start:coords(e,c),end:coords(e,c)};c.setPointerCapture(e.pointerId)});
+ c.addEventListener('pointermove',e=>{if(drag&&drag.obj===obj)drag.end=coords(e,c)});
+ c.addEventListener('pointerup',e=>{if(!drag||drag.obj!==obj)return;let r=roiRect(drag.start,coords(e,c));drag=null;
+  let need=obj===tv?.016:.055;if(r.w<need||r.h<(obj===tv?.012:.075)){log('Selection was too small. Draw around the target again.');return}
+  obj.roi=r;if(obj===book){resetBook();log('Bookmap NQ heatmap region selected; samples reset')}else{resetTV();$('priceCrop').removeAttribute('src');log('TradingView price reading region selected; OCR track reset')}render();});
+ c.addEventListener('pointercancel',()=>{if(drag?.obj===obj)drag=null})}
+setupDraw(book);setupDraw(tv);frameLoop(0);
+function bookPreset(){book.roi={x:.53,y:.20,w:.23,h:.53};resetBook();log('NQ starter area applied. Drag to adjust so it covers only NQ trade bubbles.');render()}
+$('bookPreset').onclick=bookPreset;
+$('tvClear').onclick=()=>{tv.roi=null;resetTV();$('priceCrop').removeAttribute('src');log('TradingView OCR box cleared');render()};
+async function share(obj,kind){try{
+ if(!navigator.mediaDevices?.getDisplayMedia)throw Error('Use Chrome/Edge on an HTTPS website');
+ // This call must run immediately after a button click; each share needs separate permission.
+ const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:12},audio:false});
+ if(obj.stream){for(const track of obj.stream.getTracks())track.stop()}
+ obj.stream=stream;obj.video.srcObject=stream;await obj.video.play();
+ const track=stream.getVideoTracks()[0];track.addEventListener('ended',()=>{if(obj.stream===stream)stopShare(obj,kind)},{once:true});
+ if(obj===book){bookPreset();$('bookShare').textContent='Replace Bookmap share'}else{resetTV();$('tvShare').textContent='Replace TradingView share'}
+ log(kind+' screen shared. Select or verify the highlighted region.');render();
+ }catch(e){log(kind+' capture canceled/failed: '+e.message);$(kind==='Bookmap'?'bookStatus':'tvStatus').textContent='Capture error: '+e.message}}
+$('bookShare').onclick=()=>share(book,'Bookmap');$('tvShare').onclick=()=>share(tv,'TradingView');
+function stopShare(obj,kind){if(obj.stream){for(const t of obj.stream.getTracks())t.stop()}obj.stream=null;obj.video.srcObject=null;
+ if(obj===book){resetBook();$('bookShare').textContent='Share Bookmap'}else{resetTV();$('tvShare').textContent='Share TradingView'}
+ log(kind+' share stopped');if(!book.stream){stopMonitor()}render()}
+$('bookStop').onclick=()=>stopShare(book,'Bookmap');$('tvStop').onclick=()=>stopShare(tv,'TradingView');
+// This classifies ONLY colored pixel changes, not exchange order-flow executions.
+function colorType(r,g,b){let max=Math.max(r,g,b),min=Math.min(r,g,b);if(max-min<40||max<102)return 0;if(g>r*1.17&&g>b*1.08&&g>108)return 1;if(r>g*1.19&&r>b*1.09&&r>115)return -1;return 0}
+const heat=document.createElement('canvas');heat.width=260;heat.height=180;const hc=heat.getContext('2d',{willReadFrequently:true});
+function changingColors(cur,prev,W,H){let green=0,red=0,motion=0,n=0;
+ // Excluding thin border pixels avoids UI text and chart edges; color weighs are proxies only.
+ for(let y=5;y<H-5;y+=2)for(let x=5;x<W-5;x+=2){let p=(y*W+x)*4,d=Math.abs(cur[p]-prev[p])+Math.abs(cur[p+1]-prev[p+1])+Math.abs(cur[p+2]-prev[p+2]);motion+=d;n++;
+ if(d<60)continue;let type=colorType(cur[p],cur[p+1],cur[p+2]);if(type===1)green++;else if(type===-1)red++}
+ return{g:green,r:red,motion:motion/Math.max(1,n)}}
+function captureCrop(obj,r,canvas,context){if(!obj.stream||!live(obj.video)||!r)return false;let v=obj.video,
+ x=Math.max(0,Math.floor(r.x*v.videoWidth)),y=Math.max(0,Math.floor(r.y*v.videoHeight)),w=Math.min(v.videoWidth-x,Math.max(1,Math.floor(r.w*v.videoWidth))),h=Math.min(v.videoHeight-y,Math.max(1,Math.floor(r.h*v.videoHeight)));
+ if(w<5||h<5)return false;context.drawImage(v,x,y,w,h,0,0,canvas.width,canvas.height);return true}
+function sampleBook(){if(!book.stream||!book.roi||!captureCrop(book,book.roi,heat,hc))return;let data=hc.getImageData(0,0,heat.width,heat.height).data,t=now();
+ if(book.prev){let obs=changingColors(data,book.prev,heat.width,heat.height);if(obs.motion>1.2)book.lastMotion=t;
+ book.samples.push({t,...obs});book.samples=book.samples.filter(x=>t-x.t<=65000);logRows.push([new Date(t).toISOString(),tv.last?.p??'',tv.source||'',obs.g,obs.r,obs.motion.toFixed(2),$('signal').textContent]);if(logRows.length>15000)logRows.shift()}
+ book.prev=data;render()}
+const agg=ms=>{let t=now(),a=book.samples.filter(x=>t-x.t<=ms),g=0,r=0;for(let x of a){g+=x.g;r+=x.r}return{g,r,n:a.length,b:(g+r)?(g-r)/(g+r):0}};
+// Tesseract OCR starts only on an explicit Test/Start action. Worker remains within the browser.
+async function getWorker(){if(worker)return worker;if(workerPromise)return workerPromise;
+ if(!window.Tesseract)throw Error('OCR library did not load (internet required).');
+ workerPromise=(async()=>{log('Loading OCR language data…');let w=await Tesseract.createWorker('eng',1);await w.setParameters({tessedit_char_whitelist:'0123456789.,',tessedit_pageseg_mode:'7'});worker=w;log('OCR ready');return w})();
+ try{return await workerPromise}catch(e){workerPromise=null;throw e}}
+const ocrCanvas=document.createElement('canvas'),ocrCtx=ocrCanvas.getContext('2d',{willReadFrequently:true});
+function ocrSnapshot(){let r=tv.roi,v=tv.video;if(!r||!tv.stream||!live(v))return null;
+ const x=Math.floor(clamp(r.x)*v.videoWidth),y=Math.floor(clamp(r.y)*v.videoHeight),w=Math.max(10,Math.floor(r.w*v.videoWidth)),h=Math.max(8,Math.floor(r.h*v.videoHeight));
+ const scale=Math.min(5,Math.max(2,700/w));ocrCanvas.width=Math.min(1300,Math.round(w*scale));ocrCanvas.height=Math.min(550,Math.round(h*scale));
+ let ww=Math.min(w,v.videoWidth-x),hh=Math.min(h,v.videoHeight-y);ocrCtx.drawImage(v,x,y,ww,hh,0,0,ocrCanvas.width,ocrCanvas.height);
+ let mode=$('ocrMode').value;if(mode!=='normal'){let im=ocrCtx.getImageData(0,0,ocrCanvas.width,ocrCanvas.height);for(let i=0;i<im.data.length;i+=4){let lum=.30*im.data[i]+.59*im.data[i+1]+.11*im.data[i+2];let c=mode==='high'?(lum>135?255:0):(lum>135?0:255);im.data[i]=im.data[i+1]=im.data[i+2]=c}ocrCtx.putImageData(im,0,0)}
+ // OCR screenshot is shown to the user, but never uploaded to a server by this app.
+ $('priceCrop').src=ocrCanvas.toDataURL('image/png');return ocrCanvas}
+function parseNQ(raw){let text=(raw||'').replace(/[Oo]/g,'0').replace(/[lI|]/g,'1').replace(/,/g,'');let matches=text.match(/\d{4,6}(?:\.\d{1,2})?/g)||[];
+ let prices=[];for(let m of matches){let p=Number(m);if(p>1000&&p<100000&&Math.abs(p*4-Math.round(p*4))<.02)prices.push(p)}return [...new Set(prices)]}
+function acceptPrice(p,source,conf){let t=now();if(!Number.isFinite(p)||p<=0)return false;
+ let old=tv.last;if(old){let dt=(t-old.t)/1000;
+ // Reject gross OCR jumps. A reset lets the user intentionally re-anchor after real gap moves.
+ let maxJump=Math.max(70,Math.min(180,8*dt+25));if(Math.abs(p-old.p)>maxJump){log(`Rejected ${source} price ${p.toFixed(2)}: jumps ${Math.abs(p-old.p).toFixed(2)} points from last reading. Use Reset price track if chart changed contracts.`);return false}}
+ tv.last={p,t};tv.lastAt=t;tv.source=source;tv.confidence=conf;tv.history.push({p,t,source});tv.history=tv.history.filter(x=>t-x.t<75000);return true}
+async function readPrice(){if(tv.busy||!tv.stream||!tv.roi)return;tv.busy=true;
+ try{let crop=ocrSnapshot();if(!crop)throw Error('No readable selected region');let w=await getWorker(),res=await w.recognize(crop),text=(res?.data?.text||'').trim(),confidence=Math.round(res?.data?.confidence||0),prices=parseNQ(text);tv.raw=text||'(blank)';
+ if(prices.length!==1){log('TV OCR ambiguous: '+JSON.stringify(text)+'; select only ONE clearly readable price.');return}
+ if(confidence<43){log('TV OCR low confidence '+confidence+'%: '+text);return}
+ if(acceptPrice(prices[0],'TradingView OCR',confidence)){log('TV: '+prices[0].toFixed(2)+' ('+confidence+'%). '+(tv.verified?'Tracking verified price':'Confirm first displayed price before trusting direction.'))}
+ }catch(e){log('TV OCR failed: '+e.message)}finally{tv.busy=false;render()}}
+$('testPrice').onclick=()=>readPrice();
+$('confirmPrice').onclick=()=>{if(!tv.last||tv.source!=='TradingView OCR')return;tv.verified=true;tv.history=[tv.last];log('User visually confirmed the initial TradingView OCR price '+tv.last.p.toFixed(2));render()};
+$('useManual').onclick=()=>{let el=$('manualPrice'),p=Number(el.value);if(!el.value||!Number.isFinite(p)||p<=0||Math.abs(p*4-Math.round(p*4))>.02){el.setCustomValidity('Enter an NQ price in 0.25-point increments');el.reportValidity();return}el.setCustomValidity('');
+ if(!acceptPrice(p,'Manual snapshot',100))return;tv.raw='Manually entered';tv.verified=true;log('Manual price snapshot '+p.toFixed(2));render()};
+$('manualPrice').addEventListener('keydown',e=>{if(e.key==='Enter')$('useManual').click()});
+$('reset').onclick=()=>{resetTV();log('Price track reset. The next accepted OCR or manual price establishes a new baseline.');render()};
+const sampleTVHash=document.createElement('canvas');sampleTVHash.width=64;sampleTVHash.height=32;const th=sampleTVHash.getContext('2d',{willReadFrequently:true});
+function checkTVFrame(){if(!tv.stream||!live(tv.video))return;let v=tv.video;
+ th.drawImage(v,v.videoWidth*.18,v.videoHeight*.28,v.videoWidth*.62,v.videoHeight*.50,0,0,64,32);let a=th.getImageData(0,0,64,32).data,hash=0;
+ for(let i=0;i<a.length;i+=37){hash=(Math.imul(hash,31)+a[i]+2*a[i+1]+3*a[i+2])|0}if(hash!==tv.lastChartHash){tv.lastChartHash=hash;tv.lastChartChanged=now()}}
+function priceDelta(){let t=now(),arr=tv.history.filter(x=>t-x.t<=65000),latest=arr.at(-1);if(!latest)return null;let prior=arr.filter(x=>latest.t-x.t>=20000).at(-1);if(!prior)return null;return{delta:latest.p-prior.p,seconds:Math.round((latest.t-prior.t)/1000)}}
+function render(){let b15=agg(15000),b60=agg(60000),tot=b15.g+b15.r,span=book.samples.length?book.samples.at(-1).t-book.samples[0].t:0,bookFrozen=book.lastMotion&&now()-book.lastMotion>12000,
+ priceAge=tv.lastAt?now()-tv.lastAt:Infinity,delta=priceDelta(),label='WAIT',reason='';
+ $('bookStatus').textContent=book.stream?(book.roi?'Sharing • NQ region selected':'Sharing • draw NQ region'):'Not sharing';$('tvStatus').textContent=tv.stream?(tv.roi?'Sharing • price box selected':'Sharing • draw around current price'):'Not sharing';
+ $('bookStop').disabled=!book.stream;$('tvStop').disabled=!tv.stream;$('bookPreset').disabled=!book.stream;$('testPrice').disabled=!tv.stream||!tv.roi;$('confirmPrice').disabled=!tv.last||tv.source!=='TradingView OCR'||tv.verified;
+ $('start').disabled=monitoring||!book.stream||!book.roi||(!tv.stream&&!tv.last);$('pause').disabled=!monitoring;
+ $('nqPrice').textContent=tv.last?tv.last.p.toFixed(2):'—';$('priceSource').textContent=tv.source||'—';$('confidence').textContent=tv.source==='TradingView OCR'?tv.confidence+'%':tv.source?'Manual input':'—';$('rawRead').textContent=tv.raw||'—';$('verified').textContent=tv.verified?'Yes':'No';$('priceAge').textContent=tv.lastAt?Math.round(priceAge/1000)+' s':'—';
+ $('priceMove').textContent=delta?(delta.delta>=0?'+':'')+delta.delta.toFixed(2)+' pts / '+delta.seconds+' s':'—';
+ const fmt=x=>(x.g+x.r)?Math.round(100*x.g/(x.g+x.r))+'% green / '+Math.round(100*x.r/(x.g+x.r))+'% red':'—';
+ $('book15').textContent=fmt(b15);$('book60').textContent=fmt(b60);$('bookMotion').textContent=book.lastMotion?(bookFrozen?'possibly frozen':'changing'):'not established';$('bookSamples').textContent=book.samples.length;
+ $('greenbar').style.width=(tot?100*b15.g/tot:0)+'%';$('redbar').style.width=(tot?100*b15.r/tot:0)+'%';
+ let priceIsFresh=priceAge<(tv.source==='Manual snapshot'?12000:13000),tvChartFrozen=tv.stream&&tv.lastChartChanged&&now()-tv.lastChartChanged>16000;
+ if(!monitoring)reason='Click Start NQ monitoring when Bookmap and TradingView are ready.';
+ else if(!book.stream||!book.roi)reason='Share Bookmap and select only NQ heatmap bubbles.';
+ else if(book.samples.length<10||span<20000)reason='Collecting at least 20 seconds of Bookmap video changes.';
+ else if(bookFrozen||!book.lastMotion)reason='Bookmap video seems frozen or has no measurable movement in the selected NQ region.';
+ else if(b15.g+b15.r<10||b60.g+b60.r<25)reason='Bookmap chart has too little detectable red/green changing activity.';
+ else if(!tv.last||!priceIsFresh)reason='TradingView current price is absent or stale. Verify its OCR crop or update the manual price.';
+ else if(!tv.verified)reason='Visually compare the TradingView OCR price to your chart and click Confirm detected price.';
+ else if(tvChartFrozen&&tv.source==='TradingView OCR')reason='TradingView screen may be frozen. Check that its chart is updating.';
+ else if(!delta)reason='Collecting at least 20 seconds of correctly read TradingView prices.';
+ else{let threshold=Math.max(.25,Number($('moveThreshold').value)||3);let vb=b15.b;
+ if(Math.abs(delta.delta)<threshold){label='NEUTRAL';reason='NQ price movement is below the selected threshold.'}
+ else if(Math.abs(vb)<.20||Math.abs(b60.b)<.10){label='NEUTRAL';reason='Changing Bookmap colors are mixed or weak.'}
+ else if(vb>.20&&b60.b>.10&&delta.delta>=threshold){label='BULLISH';reason='TradingView price rose and green changing-shape activity dominated Bookmap in both windows. This is not validated buy-side order flow.'}
+ else if(vb<-.20&&b60.b<-.10&&delta.delta<=-threshold){label='BEARISH';reason='TradingView price fell and red changing-shape activity dominated Bookmap in both windows. This is not validated sell-side order flow.'}
+ else{label='NEUTRAL';reason='Price direction and Bookmap visual activity do not agree.'}}
+ let el=$('signal');el.textContent=label;el.className='signal '+(label==='BULLISH'?'bull':label==='BEARISH'?'bear':label==='NEUTRAL'?'neutral':'');
+ $('quality').textContent=label==='WAIT'?'INSUFFICIENT DATA':'VISUAL ESTIMATE';$('quality').className='tag '+(label==='WAIT'?'bad':'ok');$('reason').textContent=reason;
+ $('overallStatus').textContent=`Bookmap: ${book.stream?'shared':'not shared'} • TradingView: ${tv.stream?'shared':'not shared'} • ${monitoring?'Monitoring':'Paused'} • YouTube/TradingView latency not synchronized`;
+}
+function stopMonitor(){monitoring=false;if(book.task){clearInterval(book.task);book.task=0}if(tv.task){clearInterval(tv.task);tv.task=0}render()}
+function schedule(){clearInterval(book.task);clearInterval(tv.task);book.task=setInterval(()=>{if(monitoring)sampleBook()},Number($('bookEvery').value));tv.task=setInterval(async()=>{if(monitoring){checkTVFrame();if(tv.stream&&tv.roi)await readPrice();render()}},Number($('tvEvery').value))}
+$('start').onclick=()=>{if(!book.stream||!book.roi){log('Share Bookmap and select NQ region first');return}
+ if(!tv.stream&&!tv.last){log('Share TradingView or enter a manual price first');return}
+ resetBook();monitoring=true;schedule();sampleBook();checkTVFrame();if(tv.stream&&tv.roi)readPrice();log('Started NQ dual-source observations (not validated trading signals).');render()};
+$('pause').onclick=()=>{stopMonitor();log('NQ monitoring paused')};
+$('bookEvery').onchange=()=>{if(monitoring)schedule()};$('tvEvery').onchange=()=>{if(monitoring)schedule()};
+$('moveThreshold').onchange=render;
+$('csv').onclick=()=>{const rows=[['timestamp_utc','tv_nq_price','price_source','bookmap_green_visual_changes','bookmap_red_visual_changes','video_motion','nq_label'],...logRows],data=rows.map(row=>row.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');let blob=new Blob([data],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nq-dual-source-v5.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+window.addEventListener('beforeunload',()=>{stopMonitor();for(let o of [book,tv])if(o.stream)for(let t of o.stream.getTracks())t.stop();cancelAnimationFrame(raf);if(worker)worker.terminate()});
+setInterval(render,1000);render();
+})();
+</script>
+</body>
+</html>
